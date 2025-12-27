@@ -40,53 +40,118 @@ const ARPage = () => {
     };
 
     const initializeAR = () => {
-      // Écouter l'événement de chargement des NFT markers
-      const handleNFTLoaded = () => {
+      let nftLoadedHandler = null;
+      let markerFoundHandler = null;
+      let markerLostHandler = null;
+      let safetyTimeout = null;
+      let sceneCheckInterval = null;
+
+      // Fonction pour cacher le loader
+      const hideLoader = () => {
         setIsLoading(false);
+        console.log('Loader caché - AR prêt');
+      };
+
+      // Écouter l'événement de chargement des NFT markers
+      nftLoadedHandler = () => {
+        hideLoader();
         console.log('NFT Markers chargés avec succès');
       };
 
-      window.addEventListener('arjs-nft-loaded', handleNFTLoaded);
+      // Écouter sur window ET document (au cas où)
+      window.addEventListener('arjs-nft-loaded', nftLoadedHandler);
+      document.addEventListener('arjs-nft-loaded', nftLoadedHandler);
 
       // Attendre que la scène soit dans le DOM
-      const checkScene = setInterval(() => {
+      sceneCheckInterval = setInterval(() => {
         const scene = document.querySelector('a-scene');
         if (scene) {
-          clearInterval(checkScene);
+          clearInterval(sceneCheckInterval);
+          
+          // Écouter aussi sur la scène elle-même
+          scene.addEventListener('arjs-nft-loaded', nftLoadedHandler);
           
           // Écouter les événements de tracking
-          const handleMarkerFound = () => {
+          markerFoundHandler = () => {
             setMarkerFound(true);
             setIsTracking(true);
             console.log('Image détectée !');
           };
 
-          const handleMarkerLost = () => {
+          markerLostHandler = () => {
             setMarkerFound(false);
             setIsTracking(false);
             console.log('Image perdue');
           };
 
-          scene.addEventListener('markerFound', handleMarkerFound);
-          scene.addEventListener('markerLost', handleMarkerLost);
+          scene.addEventListener('markerFound', markerFoundHandler);
+          scene.addEventListener('markerLost', markerLostHandler);
 
-          // Nettoyage
-          return () => {
-            scene.removeEventListener('markerFound', handleMarkerFound);
-            scene.removeEventListener('markerLost', handleMarkerLost);
-          };
+          // Vérifier périodiquement si la scène est prête et si la caméra est active
+          const checkSceneReady = setInterval(() => {
+            if (scene.hasLoaded && scene.isPlaying) {
+              // Vérifier si la vidéo de la caméra est active (indique que l'AR est prêt)
+              const video = document.querySelector('video');
+              if (video && video.readyState >= 2 && !video.paused) {
+                clearInterval(checkSceneReady);
+                // La caméra est active, cacher le loader après un court délai
+                setTimeout(() => {
+                  hideLoader();
+                }, 500);
+              }
+              
+              // Alternative : vérifier si les descripteurs NFT sont chargés
+              const arjsSystem = scene.systems['arjs'];
+              if (arjsSystem && arjsSystem._arSession && arjsSystem._arSession.ready) {
+                clearInterval(checkSceneReady);
+                setTimeout(() => {
+                  hideLoader();
+                }, 500);
+              }
+            }
+          }, 300);
+          
+          // Arrêter la vérification après 10 secondes et cacher le loader de toute façon
+          setTimeout(() => {
+            clearInterval(checkSceneReady);
+            hideLoader();
+          }, 10000);
         }
       }, 100);
 
-      // Timeout de sécurité
-      setTimeout(() => {
-        clearInterval(checkScene);
-        const scene = document.querySelector('a-scene');
-        if (!scene) {
-          console.error('Scène A-Frame non trouvée après 5 secondes');
-          setIsLoading(false);
-        }
+      // Timeout de sécurité : cacher le loader après 5 secondes même si l'événement ne se déclenche pas
+      // (la caméra devrait être ouverte à ce moment-là)
+      safetyTimeout = setTimeout(() => {
+        clearInterval(sceneCheckInterval);
+        console.warn('Timeout de sécurité : masquage du loader après 5 secondes');
+        hideLoader();
       }, 5000);
+
+      // Nettoyage
+      return () => {
+        if (nftLoadedHandler) {
+          window.removeEventListener('arjs-nft-loaded', nftLoadedHandler);
+          document.removeEventListener('arjs-nft-loaded', nftLoadedHandler);
+        }
+        if (safetyTimeout) {
+          clearTimeout(safetyTimeout);
+        }
+        if (sceneCheckInterval) {
+          clearInterval(sceneCheckInterval);
+        }
+        const scene = document.querySelector('a-scene');
+        if (scene) {
+          if (nftLoadedHandler) {
+            scene.removeEventListener('arjs-nft-loaded', nftLoadedHandler);
+          }
+          if (markerFoundHandler) {
+            scene.removeEventListener('markerFound', markerFoundHandler);
+          }
+          if (markerLostHandler) {
+            scene.removeEventListener('markerLost', markerLostHandler);
+          }
+        }
+      };
     };
 
     // Attendre que les scripts soient chargés
@@ -96,8 +161,9 @@ const ARPage = () => {
       checkAndInitialize();
     }
 
+    // Le nettoyage est géré dans initializeAR
     return () => {
-      window.removeEventListener('arjs-nft-loaded', () => {});
+      // Nettoyage effectué dans initializeAR
     };
   }, [selectedImage]);
 
