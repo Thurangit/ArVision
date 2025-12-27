@@ -16,6 +16,16 @@ const ARPage = () => {
     // Charger la liste des images disponibles
     const images = imageRecognitionService.getAvailableImages();
     setAvailableImages(images);
+    
+    // Réinitialiser le scroll quand on entre dans la page AR
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    
+    // Nettoyage quand on quitte la page
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
   }, []);
 
   useEffect(() => {
@@ -333,6 +343,7 @@ const ARPage = () => {
           key={`scene-${selectedImage}`}
         >
         {/* NFT Marker - Image Tracking */}
+        {/* AR.js charge automatiquement .fset, .fset3 et .iset - l'URL doit être sans extension */}
         <a-nft
           type="nft"
           url={`/composant/image-a-reconnaitre/${selectedImage}`}
@@ -426,8 +437,8 @@ const ARPage = () => {
       {/* Styles pour le loader et mobile */}
       <style>{`
         .arjs-loader {
-          height: 100%;
-          width: 100%;
+          height: 100vh;
+          width: 100vw;
           position: fixed;
           top: 0;
           left: 0;
@@ -446,39 +457,9 @@ const ARPage = () => {
           color: white;
         }
 
-        /* Styles pour mobile - s'assurer que la scène prend toute la place */
-        @media (max-width: 768px) {
-          a-scene {
-            width: 100vw !important;
-            height: 100vh !important;
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            z-index: 1 !important;
-          }
-
-          a-scene video {
-            width: 100vw !important;
-            height: 100vh !important;
-            object-fit: cover !important;
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            transform: none !important;
-          }
-
-          a-scene canvas {
-            width: 100vw !important;
-            height: 100vh !important;
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-          }
-        }
-
-        /* Empêcher le zoom sur mobile */
-        * {
-          touch-action: manipulation;
+        /* Empêcher le zoom et le scroll sur la page AR uniquement */
+        .ar-page-container * {
+          touch-action: none;
           -webkit-touch-callout: none;
           -webkit-user-select: none;
           user-select: none;

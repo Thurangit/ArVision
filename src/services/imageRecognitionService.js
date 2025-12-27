@@ -5,8 +5,8 @@
 
 class ImageRecognitionService {
   constructor() {
-    // Seuil de similarité par défaut (55%)
-    this.defaultSimilarityThreshold = 0.55;
+    // Seuil de similarité par défaut (60%)
+    this.defaultSimilarityThreshold = 0.6;
     
     // Images disponibles avec leurs descripteurs
     this.availableImages = {

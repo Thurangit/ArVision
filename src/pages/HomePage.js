@@ -8,8 +8,8 @@ const HomePage = () => {
   const [recognitionStatus, setRecognitionStatus] = useState('');
   const [recognitionResult, setRecognitionResult] = useState(null);
   const [selectedImage, setSelectedImage] = useState('logoGifty144x144');
-  const [selectedDescriptor, setSelectedDescriptor] = useState('fset');
-  const [similarityThreshold, setSimilarityThreshold] = useState(0.55); // 55% par défaut
+  const [selectedDescriptor, setSelectedDescriptor] = useState('iset'); // Utiliser iset par défaut car il fonctionne mieux
+  const [similarityThreshold, setSimilarityThreshold] = useState(0.6); // 60% par défaut
   const [descriptorsLoaded, setDescriptorsLoaded] = useState(false);
   const [availableImages, setAvailableImages] = useState([]);
   const fileInputRef = useRef(null);
