@@ -1,0 +1,368 @@
+import React, { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import imageRecognitionService from '../services/imageRecognitionService';
+
+const ARPage = () => {
+  const [searchParams] = useSearchParams();
+  const [selectedImage, setSelectedImage] = useState(
+    searchParams.get('image') || 'logoGifty144x144'
+  );
+  const [availableImages, setAvailableImages] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isTracking, setIsTracking] = useState(false);
+  const [markerFound, setMarkerFound] = useState(false);
+
+  useEffect(() => {
+    // Charger la liste des images disponibles
+    const images = imageRecognitionService.getAvailableImages();
+    setAvailableImages(images);
+  }, []);
+
+  useEffect(() => {
+    // Vérifier que A-Frame et AR.js sont chargés (depuis index.html)
+    const checkAndInitialize = () => {
+      if (!window.AFRAME) {
+        console.error('A-Frame n\'est pas chargé. Vérifiez que le script est dans index.html');
+        setIsLoading(false);
+        return;
+      }
+
+      if (!window.ARjs) {
+        console.error('AR.js n\'est pas chargé. Vérifiez que le script est dans index.html');
+        setIsLoading(false);
+        return;
+      }
+
+      // Attendre que le DOM soit prêt et que React ait rendu la scène
+      setTimeout(() => {
+        initializeAR();
+      }, 1000);
+    };
+
+    const initializeAR = () => {
+      // Écouter l'événement de chargement des NFT markers
+      const handleNFTLoaded = () => {
+        setIsLoading(false);
+        console.log('NFT Markers chargés avec succès');
+      };
+
+      window.addEventListener('arjs-nft-loaded', handleNFTLoaded);
+
+      // Attendre que la scène soit dans le DOM
+      const checkScene = setInterval(() => {
+        const scene = document.querySelector('a-scene');
+        if (scene) {
+          clearInterval(checkScene);
+          
+          // Écouter les événements de tracking
+          const handleMarkerFound = () => {
+            setMarkerFound(true);
+            setIsTracking(true);
+            console.log('Image détectée !');
+          };
+
+          const handleMarkerLost = () => {
+            setMarkerFound(false);
+            setIsTracking(false);
+            console.log('Image perdue');
+          };
+
+          scene.addEventListener('markerFound', handleMarkerFound);
+          scene.addEventListener('markerLost', handleMarkerLost);
+
+          // Nettoyage
+          return () => {
+            scene.removeEventListener('markerFound', handleMarkerFound);
+            scene.removeEventListener('markerLost', handleMarkerLost);
+          };
+        }
+      }, 100);
+
+      // Timeout de sécurité
+      setTimeout(() => {
+        clearInterval(checkScene);
+        const scene = document.querySelector('a-scene');
+        if (!scene) {
+          console.error('Scène A-Frame non trouvée après 5 secondes');
+          setIsLoading(false);
+        }
+      }, 5000);
+    };
+
+    // Attendre que les scripts soient chargés
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', checkAndInitialize);
+    } else {
+      checkAndInitialize();
+    }
+
+    return () => {
+      window.removeEventListener('arjs-nft-loaded', () => {});
+    };
+  }, [selectedImage]);
+
+  return (
+    <div style={{ margin: 0, overflow: 'hidden', height: '100vh', position: 'relative' }}>
+      {/* Loader */}
+      {isLoading && (
+        <div className="arjs-loader">
+          <div>
+            <div style={{ fontSize: '1.5em', marginBottom: '1em' }}>⏳</div>
+            <div>Chargement des descripteurs d'image...</div>
+            <div style={{ fontSize: '0.9em', marginTop: '0.5em', opacity: 0.8 }}>
+              Cela peut prendre quelques instants selon la puissance de votre appareil
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sélecteur d'image */}
+      {!isLoading && availableImages.length > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '20px',
+            right: '20px',
+            zIndex: 10000,
+            padding: '10px',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            borderRadius: '10px',
+            minWidth: '200px'
+          }}
+        >
+          <label style={{ color: 'white', fontSize: '12px', marginBottom: '5px', display: 'block' }}>
+            Image à tracker :
+          </label>
+          <select
+            value={selectedImage}
+            onChange={(e) => {
+              setSelectedImage(e.target.value);
+              window.location.href = `/ar?image=${e.target.value}`;
+            }}
+            style={{
+              width: '100%',
+              padding: '8px',
+              borderRadius: '5px',
+              border: 'none',
+              backgroundColor: 'white',
+              fontSize: '14px',
+              cursor: 'pointer'
+            }}
+          >
+            {availableImages.map((img) => (
+              <option key={img.name} value={img.name}>
+                {img.displayName}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Indicateur de tracking */}
+      {!isLoading && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 10000,
+            padding: '10px 20px',
+            backgroundColor: markerFound ? 'rgba(76, 175, 80, 0.9)' : 'rgba(255, 152, 0, 0.9)',
+            color: 'white',
+            borderRadius: '25px',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
+            transition: 'all 0.3s ease'
+          }}
+        >
+          {markerFound 
+            ? '✓ Image détectée' 
+            : `📷 Cherchez l'image ${availableImages.find(img => img.name === selectedImage)?.displayName || selectedImage}`
+          }
+        </div>
+      )}
+
+      {/* Instructions */}
+      {!isLoading && !markerFound && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 10000,
+            padding: '15px 25px',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            color: 'white',
+            borderRadius: '10px',
+            fontSize: '14px',
+            textAlign: 'center',
+            maxWidth: '90%'
+          }}
+        >
+          <div style={{ marginBottom: '10px', fontWeight: 'bold' }}>
+            Instructions :
+          </div>
+          <div>
+            Pointez votre caméra vers l'image <strong>{availableImages.find(img => img.name === selectedImage)?.displayName || selectedImage}</strong> pour voir le contenu AR
+          </div>
+        </div>
+      )}
+
+      {/* Bouton retour */}
+      <Link
+        to="/"
+        style={{
+          position: 'absolute',
+          top: '20px',
+          left: '20px',
+          zIndex: 10000,
+          padding: '10px 20px',
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          color: 'white',
+          textDecoration: 'none',
+          borderRadius: '25px',
+          fontSize: '14px',
+          fontWeight: 'bold',
+          transition: 'all 0.3s ease'
+        }}
+        onMouseEnter={(e) => {
+          e.target.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        }}
+      >
+        ← Retour
+      </Link>
+
+      {/* Scène A-Frame avec AR - Ne rendre que si A-Frame est chargé */}
+      {typeof window !== 'undefined' && window.AFRAME && window.ARjs && (
+        <a-scene
+          vr-mode-ui="enabled: false"
+          renderer="logarithmicDepthBuffer: true;"
+          embedded
+          arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
+          style={{ width: '100%', height: '100%' }}
+          key={`scene-${selectedImage}`}
+        >
+        {/* NFT Marker - Image Tracking */}
+        <a-nft
+          type="nft"
+          url={`/composant/image-a-reconnaitre/${selectedImage}`}
+          smooth="true"
+          smoothCount="10"
+          smoothTolerance=".01"
+          smoothThreshold="5"
+          emitevents="true"
+          size="1"
+          key={selectedImage}
+        >
+          {/* Contenu 3D à afficher au-dessus de l'image */}
+          
+          {/* Exemple 1: Boîte colorée */}
+          <a-box
+            position="0 0.5 0"
+            rotation="0 45 0"
+            color="#4CC3D9"
+            scale="0.5 0.5 0.5"
+            animation="property: rotation; to: 0 405 0; loop: true; dur: 10000"
+          ></a-box>
+
+          {/* Exemple 2: Texte 3D */}
+          <a-text
+            value="ArVision"
+            position="0 1.2 0"
+            align="center"
+            color="#FF6B6B"
+            scale="2 2 2"
+          ></a-text>
+
+          {/* Exemple 3: Sphère animée */}
+          <a-sphere
+            position="-0.5 0.3 0"
+            radius="0.2"
+            color="#4ECDC4"
+            animation="property: position; to: 0.5 0.3 0; loop: true; dur: 2000; easing: easeInOut"
+          ></a-sphere>
+
+          {/* Exemple 4: Plan avec image ou vidéo (décommentez si vous avez un asset) */}
+          {/* 
+          <a-plane
+            position="0 0.8 0"
+            rotation="-90 0 0"
+            width="1"
+            height="1"
+            src="#myImage"
+          ></a-plane>
+          */}
+
+          {/* Exemple 5: Modèle GLTF (décommentez et ajoutez votre modèle) */}
+          {/* 
+          <a-entity
+            gltf-model="/path-to-your-model.gltf"
+            scale="0.5 0.5 0.5"
+            position="0 0.5 0"
+            rotation="0 0 0"
+          ></a-entity>
+          */}
+        </a-nft>
+
+         {/* Caméra statique */}
+         <a-entity camera></a-entity>
+       </a-scene>
+       )}
+       
+       {/* Message si A-Frame n'est pas chargé */}
+       {typeof window !== 'undefined' && (!window.AFRAME || !window.ARjs) && (
+         <div style={{
+           position: 'absolute',
+           top: '50%',
+           left: '50%',
+           transform: 'translate(-50%, -50%)',
+           zIndex: 10000,
+           padding: '20px',
+           backgroundColor: 'rgba(255, 0, 0, 0.9)',
+           color: 'white',
+           borderRadius: '10px',
+           textAlign: 'center',
+           maxWidth: '90%'
+         }}>
+           <div style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '10px' }}>
+             Erreur de chargement
+           </div>
+           <div>
+             A-Frame ou AR.js ne sont pas chargés. Vérifiez votre connexion internet et rechargez la page.
+           </div>
+         </div>
+       )}
+
+      {/* Styles pour le loader */}
+      <style>{`
+        .arjs-loader {
+          height: 100%;
+          width: 100%;
+          position: absolute;
+          top: 0;
+          left: 0;
+          background-color: rgba(0, 0, 0, 0.8);
+          z-index: 9999;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
+
+        .arjs-loader div {
+          text-align: center;
+          font-size: 1.25em;
+          color: white;
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default ARPage;
+
