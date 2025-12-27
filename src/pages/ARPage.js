@@ -168,7 +168,18 @@ const ARPage = () => {
   }, [selectedImage]);
 
   return (
-    <div style={{ margin: 0, overflow: 'hidden', height: '100vh', position: 'relative' }}>
+    <div style={{ 
+      margin: 0, 
+      padding: 0,
+      overflow: 'hidden', 
+      width: '100vw',
+      height: '100vh', 
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0
+    }}>
       {/* Loader */}
       {isLoading && (
         <div className="arjs-loader">
@@ -186,7 +197,7 @@ const ARPage = () => {
       {!isLoading && availableImages.length > 0 && (
         <div
           style={{
-            position: 'absolute',
+            position: 'fixed',
             top: '20px',
             right: '20px',
             zIndex: 10000,
@@ -228,7 +239,7 @@ const ARPage = () => {
       {!isLoading && (
         <div
           style={{
-            position: 'absolute',
+            position: 'fixed',
             top: '20px',
             left: '50%',
             transform: 'translateX(-50%)',
@@ -254,7 +265,7 @@ const ARPage = () => {
       {!isLoading && !markerFound && (
         <div
           style={{
-            position: 'absolute',
+            position: 'fixed',
             bottom: '20px',
             left: '50%',
             transform: 'translateX(-50%)',
@@ -281,7 +292,7 @@ const ARPage = () => {
       <Link
         to="/"
         style={{
-          position: 'absolute',
+          position: 'fixed',
           top: '20px',
           left: '20px',
           zIndex: 10000,
@@ -308,10 +319,17 @@ const ARPage = () => {
       {typeof window !== 'undefined' && window.AFRAME && window.ARjs && (
         <a-scene
           vr-mode-ui="enabled: false"
-          renderer="logarithmicDepthBuffer: true;"
+          renderer="logarithmicDepthBuffer: true; colorManagement: true;"
           embedded
           arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
-          style={{ width: '100%', height: '100%' }}
+          style={{ 
+            width: '100vw', 
+            height: '100vh',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            zIndex: 1
+          }}
           key={`scene-${selectedImage}`}
         >
         {/* NFT Marker - Image Tracking */}
@@ -405,14 +423,16 @@ const ARPage = () => {
          </div>
        )}
 
-      {/* Styles pour le loader */}
+      {/* Styles pour le loader et mobile */}
       <style>{`
         .arjs-loader {
           height: 100%;
           width: 100%;
-          position: absolute;
+          position: fixed;
           top: 0;
           left: 0;
+          right: 0;
+          bottom: 0;
           background-color: rgba(0, 0, 0, 0.8);
           z-index: 9999;
           display: flex;
@@ -424,6 +444,44 @@ const ARPage = () => {
           text-align: center;
           font-size: 1.25em;
           color: white;
+        }
+
+        /* Styles pour mobile - s'assurer que la scène prend toute la place */
+        @media (max-width: 768px) {
+          a-scene {
+            width: 100vw !important;
+            height: 100vh !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            z-index: 1 !important;
+          }
+
+          a-scene video {
+            width: 100vw !important;
+            height: 100vh !important;
+            object-fit: cover !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            transform: none !important;
+          }
+
+          a-scene canvas {
+            width: 100vw !important;
+            height: 100vh !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+          }
+        }
+
+        /* Empêcher le zoom sur mobile */
+        * {
+          touch-action: manipulation;
+          -webkit-touch-callout: none;
+          -webkit-user-select: none;
+          user-select: none;
         }
       `}</style>
     </div>
