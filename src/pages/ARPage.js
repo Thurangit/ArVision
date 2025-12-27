@@ -285,7 +285,7 @@ const ARPage = () => {
             position="-0.5 0.3 0"
             radius="0.2"
             color="#4ECDC4"
-            animation="property: position; to: 0.5 0.3 0; loop: true; dur: 2000; easing: easeInOut"
+            animation="property: position; to: 0.5 0.3 0; loop: true; dur: 2000; easing: easeInOutQuad"
           ></a-sphere>
 
           {/* Exemple 4: Plan avec image ou vidéo (décommentez si vous avez un asset) */}

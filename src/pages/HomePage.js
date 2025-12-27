@@ -7,8 +7,10 @@ const HomePage = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [recognitionStatus, setRecognitionStatus] = useState('');
   const [recognitionResult, setRecognitionResult] = useState(null);
+  const [selectedImage, setSelectedImage] = useState('logoGifty144x144');
   const [selectedDescriptor, setSelectedDescriptor] = useState('fset');
   const [descriptorsLoaded, setDescriptorsLoaded] = useState(false);
+  const [availableImages, setAvailableImages] = useState([]);
   const fileInputRef = useRef(null);
 
   // Charger les informations sur les descripteurs au montage
@@ -16,6 +18,8 @@ const HomePage = () => {
     const loadDescriptorInfo = async () => {
       try {
         const info = imageRecognitionService.getDescriptorInfo();
+        const images = imageRecognitionService.getAvailableImages();
+        setAvailableImages(images);
         setDescriptorsLoaded(true);
       } catch (error) {
         console.error('Erreur lors du chargement des descripteurs:', error);
@@ -50,6 +54,7 @@ const HomePage = () => {
       // Utiliser le service de reconnaissance d'images
       const result = await imageRecognitionService.recognizeImage(
         selectedFile,
+        selectedImage,
         selectedDescriptor
       );
       
@@ -226,6 +231,26 @@ const HomePage = () => {
             </h2>
 
             <div className="space-y-6">
+              {/* Sélection de l'image de référence */}
+              {availableImages.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Image de référence à comparer
+                  </label>
+                  <select
+                    value={selectedImage}
+                    onChange={(e) => setSelectedImage(e.target.value)}
+                    className="block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    {availableImages.map((img) => (
+                      <option key={img.name} value={img.name}>
+                        {img.displayName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Sélection du type de descripteur */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -236,9 +261,9 @@ const HomePage = () => {
                   onChange={(e) => setSelectedDescriptor(e.target.value)}
                   className="block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="fset">FSET (logoGifty144x144.fset)</option>
-                  <option value="fset3">FSET3 (logoGifty144x144.fset3)</option>
-                  <option value="iset">ISET (logoGifty144x144.iset)</option>
+                  <option value="fset">FSET (.fset)</option>
+                  <option value="fset3">FSET3 (.fset3)</option>
+                  <option value="iset">ISET (.iset)</option>
                 </select>
               </div>
 
