@@ -11,6 +11,7 @@ const ARPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isTracking, setIsTracking] = useState(false);
   const [markerFound, setMarkerFound] = useState(false);
+  const [recognitionPercentage, setRecognitionPercentage] = useState(0);
 
   useEffect(() => {
     // Charger la liste des images disponibles
@@ -81,21 +82,51 @@ const ARPage = () => {
           // Écouter aussi sur la scène elle-même
           scene.addEventListener('arjs-nft-loaded', nftLoadedHandler);
           
+          // Variables pour calculer le pourcentage de reconnaissance
+          let detectionCount = 0;
+          let totalChecks = 0;
+          let recognitionInterval = null;
+          let lastUpdateTime = Date.now();
+
           // Écouter les événements de tracking
           markerFoundHandler = () => {
             setMarkerFound(true);
             setIsTracking(true);
+            detectionCount++;
+            totalChecks++;
+            lastUpdateTime = Date.now();
             console.log('Image détectée !');
           };
 
           markerLostHandler = () => {
             setMarkerFound(false);
             setIsTracking(false);
+            totalChecks++;
+            lastUpdateTime = Date.now();
             console.log('Image perdue');
           };
 
           scene.addEventListener('markerFound', markerFoundHandler);
           scene.addEventListener('markerLost', markerLostHandler);
+
+          // Calculer le pourcentage de reconnaissance en temps réel
+          recognitionInterval = setInterval(() => {
+            if (totalChecks > 0) {
+              // Calculer le pourcentage basé sur la fréquence de détection
+              const percentage = Math.round((detectionCount / totalChecks) * 100);
+              setRecognitionPercentage(percentage);
+            } else {
+              // Si aucune détection n'a encore eu lieu, mettre à 0
+              setRecognitionPercentage(0);
+            }
+            
+            // Réinitialiser le compteur périodiquement pour avoir une moyenne récente (fenêtre glissante)
+            if (totalChecks > 100) {
+              // Garder seulement les 50 dernières détections
+              detectionCount = Math.max(0, detectionCount - 50);
+              totalChecks = 50;
+            }
+          }, 300);
 
           // Vérifier périodiquement si la scène est prête et si la caméra est active
           const checkSceneReady = setInterval(() => {
@@ -160,6 +191,9 @@ const ARPage = () => {
           if (markerLostHandler) {
             scene.removeEventListener('markerLost', markerLostHandler);
           }
+        }
+        if (recognitionInterval) {
+          clearInterval(recognitionInterval);
         }
       };
     };
@@ -366,13 +400,33 @@ const ARPage = () => {
             animation="property: rotation; to: 0 405 0; loop: true; dur: 10000"
           ></a-box>
 
-          {/* Exemple 2: Texte 3D */}
+          {/* Exemple 2: Texte 3D - Bonjour */}
+          <a-text
+            value="Bonjour"
+            position="0 1.5 0"
+            align="center"
+            color="#4ECDC4"
+            scale="2.5 2.5 2.5"
+            font="roboto"
+          ></a-text>
+
+          {/* Texte avec pourcentage de reconnaissance */}
+          <a-text
+            value={`Reconnaissance: ${recognitionPercentage}%`}
+            position="0 1.0 0"
+            align="center"
+            color="#FFD700"
+            scale="1.5 1.5 1.5"
+            font="roboto"
+          ></a-text>
+
+          {/* Texte ArVision */}
           <a-text
             value="ArVision"
-            position="0 1.2 0"
+            position="0 0.5 0"
             align="center"
             color="#FF6B6B"
-            scale="2 2 2"
+            scale="1.8 1.8 1.8"
           ></a-text>
 
           {/* Exemple 3: Sphère animée */}
