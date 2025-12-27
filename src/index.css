@@ -5,29 +5,11 @@
 html, body {
   margin: 0;
   padding: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Styles pour mobile AR */
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-}
-
-#root {
-  width: 100%;
-  height: 100%;
-  position: fixed;
-  top: 0;
-  left: 0;
-  overflow: hidden;
 }
 
 code {
@@ -35,8 +17,36 @@ code {
     monospace;
 }
 
-/* Styles spécifiques pour AR.js sur mobile */
-a-scene {
+/* Styles spécifiques pour AR.js - uniquement sur la page AR */
+.ar-page-container {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.ar-page-container html,
+.ar-page-container body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* Styles spécifiques pour AR.js sur mobile - uniquement dans le conteneur AR */
+.ar-page-container a-scene {
   width: 100% !important;
   height: 100% !important;
   position: fixed !important;
@@ -46,7 +56,7 @@ a-scene {
 }
 
 /* S'assurer que la vidéo de la caméra prend toute la place */
-a-scene video {
+.ar-page-container a-scene video {
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
@@ -56,7 +66,7 @@ a-scene video {
 }
 
 /* Canvas AR.js */
-a-scene canvas {
+.ar-page-container a-scene canvas {
   width: 100% !important;
   height: 100% !important;
   position: absolute !important;

@@ -9,6 +9,7 @@ const HomePage = () => {
   const [recognitionResult, setRecognitionResult] = useState(null);
   const [selectedImage, setSelectedImage] = useState('logoGifty144x144');
   const [selectedDescriptor, setSelectedDescriptor] = useState('fset');
+  const [similarityThreshold, setSimilarityThreshold] = useState(0.55); // 55% par défaut
   const [descriptorsLoaded, setDescriptorsLoaded] = useState(false);
   const [availableImages, setAvailableImages] = useState([]);
   const fileInputRef = useRef(null);
@@ -51,11 +52,12 @@ const HomePage = () => {
     setRecognitionResult(null);
     
     try {
-      // Utiliser le service de reconnaissance d'images
+      // Utiliser le service de reconnaissance d'images avec le seuil de similarité configuré
       const result = await imageRecognitionService.recognizeImage(
         selectedFile,
         selectedImage,
-        selectedDescriptor
+        selectedDescriptor,
+        similarityThreshold
       );
       
       if (result.success) {
@@ -221,6 +223,50 @@ const HomePage = () => {
                   </Link>
                 </div>
               </div>
+
+              {/* Image 3: personne */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-700 mb-3">Image 3: Image Personne</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="text-sm font-medium text-gray-500 mb-2">Format FSET</div>
+                    <div className="text-lg font-semibold text-gray-800 mb-2">
+                      personne.fset
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      Descripteur d'image principal
+                    </div>
+                  </div>
+                  
+                  <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="text-sm font-medium text-gray-500 mb-2">Format FSET3</div>
+                    <div className="text-lg font-semibold text-gray-800 mb-2">
+                      personne.fset3
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      Descripteur d'image version 3
+                    </div>
+                  </div>
+                  
+                  <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="text-sm font-medium text-gray-500 mb-2">Format ISET</div>
+                    <div className="text-lg font-semibold text-gray-800 mb-2">
+                      personne.iset
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      Descripteur d'image alternatif
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <Link
+                    to="/ar?image=personne"
+                    className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                  >
+                    Tester cette image en AR →
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -265,6 +311,36 @@ const HomePage = () => {
                   <option value="fset3">FSET3 (.fset3)</option>
                   <option value="iset">ISET (.iset)</option>
                 </select>
+              </div>
+
+              {/* Configuration du seuil de similarité */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Seuil de similarité : <span className="font-bold text-blue-600">{(similarityThreshold * 100).toFixed(0)}%</span>
+                </label>
+                <div className="space-y-2">
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={similarityThreshold}
+                    onChange={(e) => setSimilarityThreshold(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                    style={{
+                      background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${similarityThreshold * 100}%, #e5e7eb ${similarityThreshold * 100}%, #e5e7eb 100%)`
+                    }}
+                  />
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>0% (Très permissif)</span>
+                    <span>50%</span>
+                    <span>100% (Très strict)</span>
+                  </div>
+                  <div className="text-xs text-gray-600 mt-1 p-2 bg-blue-50 rounded border border-blue-200">
+                    <strong>Info :</strong> Une image sera reconnue si sa similarité est supérieure à <strong>{(similarityThreshold * 100).toFixed(0)}%</strong>. 
+                    Plus le seuil est bas, plus la reconnaissance est permissive.
+                  </div>
+                </div>
               </div>
 
               {/* Sélection de fichier */}
@@ -332,6 +408,12 @@ const HomePage = () => {
                       </span>
                     </div>
                     <div className="flex justify-between">
+                      <span className="text-gray-600">Seuil requis :</span>
+                      <span className="font-medium text-gray-800">
+                        {((recognitionResult.threshold || 0.7) * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
                       <span className="text-gray-600">Correspondance :</span>
                       <span className={`font-medium ${
                         recognitionResult.match ? 'text-green-600' : 'text-red-600'
@@ -339,19 +421,38 @@ const HomePage = () => {
                         {recognitionResult.match ? '✓ Oui' : '✗ Non'}
                       </span>
                     </div>
+                    {!recognitionResult.match && (
+                      <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
+                        ⚠️ La similarité de <strong>{(recognitionResult.similarity * 100).toFixed(2)}%</strong> est inférieure au seuil requis de <strong>{((recognitionResult.threshold || 0.7) * 100).toFixed(0)}%</strong>
+                      </div>
+                    )}
                     {/* Barre de progression de la similarité */}
                     <div className="mt-3">
                       <div className="flex justify-between text-xs text-gray-500 mb-1">
                         <span>0%</span>
+                        <span>Seuil: {((recognitionResult.threshold || 0.7) * 100).toFixed(0)}%</span>
                         <span>100%</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="w-full bg-gray-200 rounded-full h-3 relative">
+                        {/* Barre de similarité */}
                         <div
-                          className={`h-2 rounded-full transition-all ${
+                          className={`h-3 rounded-full transition-all ${
                             recognitionResult.match ? 'bg-green-500' : 'bg-yellow-500'
                           }`}
                           style={{ width: `${recognitionResult.similarity * 100}%` }}
                         ></div>
+                        {/* Ligne du seuil */}
+                        <div
+                          className="absolute top-0 bottom-0 w-0.5 bg-red-500"
+                          style={{ left: `${(recognitionResult.threshold || 0.7) * 100}%` }}
+                          title={`Seuil requis: ${((recognitionResult.threshold || 0.7) * 100).toFixed(0)}%`}
+                        ></div>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>Score: {(recognitionResult.similarity * 100).toFixed(2)}%</span>
+                        <span className={recognitionResult.match ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                          {recognitionResult.match ? '✓ Au-dessus du seuil' : '✗ En-dessous du seuil'}
+                        </span>
                       </div>
                     </div>
                   </div>

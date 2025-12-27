@@ -5,6 +5,9 @@
 
 class ImageRecognitionService {
   constructor() {
+    // Seuil de similarité par défaut (55%)
+    this.defaultSimilarityThreshold = 0.55;
+    
     // Images disponibles avec leurs descripteurs
     this.availableImages = {
       logoGifty144x144: {
@@ -20,6 +23,13 @@ class ImageRecognitionService {
         fset: '/composant/image-a-reconnaitre/th.fset',
         fset3: '/composant/image-a-reconnaitre/th.fset3',
         iset: '/composant/image-a-reconnaitre/th.iset'
+      },
+      personne: {
+        name: 'personne',
+        displayName: 'Image Personne',
+        fset: '/composant/image-a-reconnaitre/personne.fset',
+        fset3: '/composant/image-a-reconnaitre/personne.fset3',
+        iset: '/composant/image-a-reconnaitre/personne.iset'
       }
     };
     
@@ -115,10 +125,14 @@ class ImageRecognitionService {
    * @param {File|string} image - Image à comparer
    * @param {string} imageName - Nom de l'image de référence
    * @param {string} descriptorType - Type de descripteur à utiliser
+   * @param {number} similarityThreshold - Seuil de similarité (0-1), défaut: 0.7 (70%)
    * @returns {Promise<Object>} - Résultat de la comparaison
    */
-  async recognizeImage(image, imageName = 'logoGifty144x144', descriptorType = 'fset') {
+  async recognizeImage(image, imageName = 'logoGifty144x144', descriptorType = 'fset', similarityThreshold = null) {
     try {
+      // Utiliser le seuil fourni ou le seuil par défaut
+      const threshold = similarityThreshold !== null ? similarityThreshold : this.defaultSimilarityThreshold;
+      
       // Charger le descripteur de référence
       const descriptor = await this.loadDescriptor(imageName, descriptorType);
       
@@ -136,7 +150,8 @@ class ImageRecognitionService {
         similarity: similarity,
         imageName: imageName,
         descriptorType: descriptorType,
-        match: similarity > 0.7 // Seuil de correspondance à 70%
+        threshold: threshold,
+        match: similarity > threshold
       };
     } catch (error) {
       return {
@@ -144,6 +159,26 @@ class ImageRecognitionService {
         error: error.message
       };
     }
+  }
+
+  /**
+   * Définit le seuil de similarité par défaut
+   * @param {number} threshold - Seuil de similarité (0-1)
+   */
+  setDefaultSimilarityThreshold(threshold) {
+    if (threshold >= 0 && threshold <= 1) {
+      this.defaultSimilarityThreshold = threshold;
+    } else {
+      console.warn('Le seuil de similarité doit être entre 0 et 1');
+    }
+  }
+
+  /**
+   * Obtient le seuil de similarité par défaut
+   * @returns {number}
+   */
+  getDefaultSimilarityThreshold() {
+    return this.defaultSimilarityThreshold;
   }
 
   /**

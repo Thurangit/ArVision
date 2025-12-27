@@ -168,7 +168,7 @@ const ARPage = () => {
   }, [selectedImage]);
 
   return (
-    <div style={{ 
+    <div className="ar-page-container" style={{ 
       margin: 0, 
       padding: 0,
       overflow: 'hidden', 
