@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ArVision
 
 Application React.js avec Réalité Augmentée (AR) utilisant AR.js et A-Frame pour l'Image Tracking.
@@ -70,3 +71,6 @@ Consultez [AR_README.md](./AR_README.md) pour le guide complet d'utilisation de 
 - Les fichiers de descripteurs doivent être accessibles depuis le dossier `public`
 - Pour de meilleurs résultats, utilisez une image de haute qualité (300 DPI)
 
+=======
+# ArVision
+>>>>>>> a102cce82f3c541e2a23f69c37841e258b07db99
