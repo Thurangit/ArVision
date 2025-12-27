@@ -56,6 +56,7 @@ const ARPage = () => {
       let markerLostHandler = null;
       let safetyTimeout = null;
       let sceneCheckInterval = null;
+      let recognitionInterval = null;
 
       // Fonction pour cacher le loader
       const hideLoader = () => {
@@ -85,7 +86,6 @@ const ARPage = () => {
           // Variables pour calculer le pourcentage de reconnaissance
           let detectionCount = 0;
           let totalChecks = 0;
-          let recognitionInterval = null;
           let lastUpdateTime = Date.now();
 
           // Écouter les événements de tracking
