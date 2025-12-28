@@ -651,6 +651,8 @@ const MindARImagePage = () => {
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
         <a-entity mindar-image-target="targetIndex: 0">
+          {/* Éléments AR commentés - Peut être réutilisés plus tard */}
+          {/* 
           <a-plane
             color="blue"
             opacity="0.5"
@@ -668,27 +670,6 @@ const MindARImagePage = () => {
             animation="property: rotation; to: 0 405 0; loop: true; dur: 10000; easing: linear"
           ></a-box>
 
-          {/* Plan de fond pour le texte de description (derrière le texte) */}
-          <a-plane
-            position="0 1.5 -0.01"
-            width="5.5"
-            height="1.3"
-            color="#000000"
-            opacity="0.75"
-            rotation="0 0 0"
-          ></a-plane>
-
-          {/* Texte de description AR - S'affiche quand l'image est détectée */}
-          <a-text
-            value="C'est une jolie fille brune en jacquette et chemise"
-            position="0 1.5 0"
-            align="center"
-            color="#FFFFFF"
-            scale="1.5 1.5 1.5"
-            width="10"
-            wrap-count="25"
-          ></a-text>
-
           <a-text
             value="Bonjour"
             position="0 1.2 0"
@@ -703,6 +684,28 @@ const MindARImagePage = () => {
             align="center"
             color="#FF6B6B"
             scale="1.5 1.5 1.5"
+          ></a-text>
+          */}
+
+          {/* Plan de fond pour le texte de description (derrière le texte) */}
+          <a-plane
+            position="0 0.8 -0.01"
+            width="2.5"
+            height="0.6"
+            color="#000000"
+            opacity="0.75"
+            rotation="0 0 0"
+          ></a-plane>
+
+          {/* Texte de description AR - S'affiche quand l'image est détectée */}
+          <a-text
+            value="C'est une jolie fille brune en jacquette et chemise"
+            position="0 0.8 0"
+            align="center"
+            color="#FFFFFF"
+            scale="0.5 0.5 0.5"
+            width="8"
+            wrap-count="30"
           ></a-text>
         </a-entity>
       </a-scene>
