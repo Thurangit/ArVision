@@ -1,39 +1,73 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 
 const MindARImagePage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isTracking, setIsTracking] = useState(false);
-  const [isPortrait, setIsPortrait] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [cameraError, setCameraError] = useState(null);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
 
-  // Détecter l'orientation et le type d'appareil
+  // Obtenir le flux vidéo de la caméra avec l'API native
   useEffect(() => {
-    const checkOrientation = () => {
-      const isPortraitMode = window.innerHeight > window.innerWidth;
-      const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+    const getCameraStream = async () => {
+      try {
+        // Demander l'accès à la caméra
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: 'environment' // Caméra arrière sur mobile
+          },
+          audio: false
+        });
 
-      setIsPortrait(isPortraitMode);
-      setIsMobile(isMobileDevice);
+        streamRef.current = stream;
+
+        // Attendre que la vidéo soit prête
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().then(() => {
+            console.log('✅ Caméra activée avec succès');
+            setIsLoading(false);
+          }).catch(err => {
+            // Ignorer les erreurs AbortError (normales en mode dev React)
+            if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
+              console.error('❌ Erreur lors de la lecture de la vidéo:', err);
+              setCameraError('Impossible de lire le flux vidéo');
+            }
+            setIsLoading(false);
+          });
+        }
+      } catch (error) {
+        console.error('❌ Erreur d\'accès à la caméra:', error);
+        setCameraError('Impossible d\'accéder à la caméra. Vérifiez les permissions.');
+        setIsLoading(false);
+      }
     };
 
-    checkOrientation();
-    window.addEventListener('resize', checkOrientation);
-    window.addEventListener('orientationchange', checkOrientation);
+    getCameraStream();
 
+    // Nettoyage
     return () => {
-      window.removeEventListener('resize', checkOrientation);
-      window.removeEventListener('orientationchange', checkOrientation);
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => {
+          track.stop();
+          console.log('📹 Piste vidéo arrêtée');
+        });
+        streamRef.current = null;
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
     };
   }, []);
 
   // Initialisation MindAR
   useEffect(() => {
-
     // Vérifier que A-Frame est chargé
     if (typeof window === 'undefined' || !window.AFRAME) {
       console.error('A-Frame n\'est pas chargé');
-      setIsLoading(false);
       return;
     }
 
@@ -65,51 +99,43 @@ const MindARImagePage = () => {
       isInitialized = true;
       console.log('✅ Scène MindAR trouvée, initialisation...');
 
-      // Définir les handlers d'événements MindAR (en dehors de setupMindARListeners pour qu'ils soient accessibles)
+      // Obtenir le système MindAR
+      let arSystem = null;
+
+      const sceneLoadedHandler = () => {
+        arSystem = scene.systems && scene.systems["mindar-image-system"];
+        if (arSystem) {
+          console.log('✅ Système MindAR chargé');
+          // Stocker le système pour le nettoyage
+          scene._arSystem = arSystem;
+        }
+      };
+
+      scene.addEventListener('loaded', sceneLoadedHandler);
+
+      // Définir les handlers d'événements MindAR
       const arReadyHandler = () => {
-        console.log('✅ MindAR Image Tracking prêt - Caméra activée');
-        setIsLoading(false);
+        console.log('✅ MindAR Image Tracking prêt');
       };
 
       const arErrorHandler = (event) => {
         console.error('❌ Erreur MindAR:', event);
-        setIsLoading(false);
       };
 
-      // Écouter l'événement de chargement du fichier .mind
       const mindLoadedHandler = () => {
         console.log('📦 Fichier .mind chargé');
       };
 
-      // Attendre que la scène soit complètement initialisée avant d'écouter les événements
-      const waitForSceneReady = () => {
-        const camera = scene.querySelector('a-camera');
-        if (!camera || !camera.object3D) {
-          setTimeout(waitForSceneReady, 100);
-          return;
-        }
+      // Ajouter les event listeners sur la scène
+      scene.addEventListener('arReady', arReadyHandler);
+      scene.addEventListener('arError', arErrorHandler);
+      scene.addEventListener('mindar-image-loaded', mindLoadedHandler);
 
-        // S'assurer que la caméra a un object3D avant de continuer
-        if (!camera.components || !camera.components.camera) {
-          setTimeout(waitForSceneReady, 100);
-          return;
-        }
-
-        console.log('✅ Scène et caméra prêtes');
-
-        // Ajouter les event listeners maintenant que la scène est prête
-        scene.addEventListener('arReady', arReadyHandler);
-        scene.addEventListener('arError', arErrorHandler);
-        scene.addEventListener('mindar-image-loaded', mindLoadedHandler);
-
-        // Stocker les handlers pour le nettoyage
-        scene._arReadyHandler = arReadyHandler;
-        scene._arErrorHandler = arErrorHandler;
-        scene._mindLoadedHandler = mindLoadedHandler;
-      };
-
-      // Démarrer l'attente de la scène
-      waitForSceneReady();
+      // Stocker les handlers pour le nettoyage
+      scene._arReadyHandler = arReadyHandler;
+      scene._arErrorHandler = arErrorHandler;
+      scene._mindLoadedHandler = mindLoadedHandler;
+      scene._sceneLoadedHandler = sceneLoadedHandler;
 
       // Écouter les événements de tracking via l'entité
       const targetEntity = scene.querySelector('[mindar-image-target]');
@@ -131,14 +157,9 @@ const MindARImagePage = () => {
         targetEntity._targetFoundHandler = targetFoundHandler;
         targetEntity._targetLostHandler = targetLostHandler;
       }
-
-      // Timeout de sécurité pour cacher le loader
-      setTimeout(() => {
-        setIsLoading(false);
-      }, 5000);
     };
 
-    // Démarrer l'initialisation après un court délai pour laisser React rendre
+    // Démarrer l'initialisation après un court délai
     const timeout = setTimeout(() => {
       initMindAR();
     }, 1000);
@@ -160,32 +181,33 @@ const MindARImagePage = () => {
         if (scene._mindLoadedHandler) {
           scene.removeEventListener('mindar-image-loaded', scene._mindLoadedHandler);
         }
+        if (scene._sceneLoadedHandler) {
+          scene.removeEventListener('loaded', scene._sceneLoadedHandler);
+        }
 
-        // Arrêter proprement MindAR pour libérer la caméra
+        // Arrêter proprement MindAR seulement si le système est complètement initialisé
         try {
-          if (scene.components && scene.components['mindar-image-system']) {
-            const mindarSystem = scene.components['mindar-image-system'];
-            if (mindarSystem && typeof mindarSystem.stopProcessVideo === 'function') {
-              mindarSystem.stopProcessVideo();
-            }
-            if (mindarSystem && typeof mindarSystem.stop === 'function') {
-              mindarSystem.stop();
+          // Vérifier d'abord si le système existe et est initialisé
+          const arSystem = scene._arSystem || (scene.systems && scene.systems["mindar-image-system"]);
+
+          if (arSystem) {
+            // Vérifier que le système a les méthodes nécessaires avant d'appeler stop
+            if (typeof arSystem.stop === 'function' && arSystem.video && arSystem.video.processor) {
+              arSystem.stop();
+              console.log('✅ MindAR arrêté proprement');
+            } else {
+              // Le système n'est pas complètement initialisé, on essaie juste de pause
+              if (typeof arSystem.pause === 'function') {
+                arSystem.pause();
+                console.log('✅ MindAR mis en pause');
+              }
             }
           }
         } catch (error) {
-          console.warn('⚠️ Erreur lors de l\'arrêt de MindAR:', error);
-        }
-
-        // Arrêter tous les streams vidéo
-        const video = scene.querySelector('video');
-        if (video && video.srcObject) {
-          const stream = video.srcObject;
-          const tracks = stream.getTracks();
-          tracks.forEach(track => {
-            track.stop();
-            console.log('📹 Piste vidéo arrêtée');
-          });
-          video.srcObject = null;
+          // Ignorer les erreurs silencieusement si le système n'est pas initialisé
+          if (error.message && !error.message.includes('stopProcessVideo')) {
+            console.warn('⚠️ Erreur lors de l\'arrêt de MindAR:', error);
+          }
         }
       }
 
@@ -199,26 +221,46 @@ const MindARImagePage = () => {
         }
       }
 
-      // Réinitialiser le flag
       isInitialized = false;
     };
   }, []);
 
   return (
-    <div className={`ar-page-container ${isMobile && isPortrait ? 'portrait-mode' : ''}`}>
-
+    <div className="ar-page-container">
       {/* Loader */}
       {isLoading && (
         <div className="arjs-loader">
           <div>
             <div style={{ fontSize: '1.5em', marginBottom: '1em' }}>⏳</div>
-            <div>Chargement MindAR Image Tracking...</div>
+            <div>Chargement de la caméra...</div>
           </div>
         </div>
       )}
 
-      {/* Indicateur de tracking - NE DOIT PAS BLOQUER */}
-      {!isLoading && (
+      {/* Message d'erreur caméra */}
+      {cameraError && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 10001,
+            padding: '20px',
+            backgroundColor: 'rgba(220, 38, 38, 0.9)',
+            color: 'white',
+            borderRadius: '10px',
+            textAlign: 'center',
+            maxWidth: '90%'
+          }}
+        >
+          <div style={{ fontSize: '1.2em', marginBottom: '10px' }}>❌ Erreur</div>
+          <div>{cameraError}</div>
+        </div>
+      )}
+
+      {/* Indicateur de tracking */}
+      {!isLoading && !cameraError && (
         <div
           className="ui-overlay-element"
           style={{
@@ -235,7 +277,7 @@ const MindARImagePage = () => {
             fontWeight: 'bold',
             boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
             transition: 'all 0.3s ease',
-            pointerEvents: 'none', // ⚠️ CRITIQUE : ne bloque pas la scène
+            pointerEvents: 'none',
             userSelect: 'none',
             touchAction: 'none'
           }}
@@ -247,7 +289,7 @@ const MindARImagePage = () => {
         </div>
       )}
 
-      {/* Bouton retour - SEUL élément cliquable */}
+      {/* Bouton retour */}
       <Link
         to="/"
         style={{
@@ -263,7 +305,7 @@ const MindARImagePage = () => {
           fontSize: '14px',
           fontWeight: 'bold',
           transition: 'all 0.3s ease',
-          pointerEvents: 'auto', // SEUL ce bouton est cliquable
+          pointerEvents: 'auto',
           display: 'block',
           userSelect: 'none',
           touchAction: 'manipulation'
@@ -272,20 +314,46 @@ const MindARImagePage = () => {
         ← Retour
       </Link>
 
-      {/* Scène MindAR Image Tracking - Configuration optimisée */}
+      {/* Vidéo de la caméra - Contrôlée par nous */}
+      {!cameraError && (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            objectFit: 'cover',
+            objectPosition: 'center center',
+            zIndex: 1
+          }}
+        />
+      )}
+
+      {/* Scène MindAR Image Tracking - Pour le tracking AR uniquement */}
       <a-scene
         mindar-image="imageTargetSrc: /composant/image-a-reconnaitre/personne.mind; filterMinCF: 0.001; filterBeta: 5; warmupTolerance: 3; missTolerance: 5; uiLoading: no; uiError: no; uiScanning: no; autoStart: true; maxTrack: 1;"
         vr-mode-ui="enabled: false"
         device-orientation-permission-ui="enabled: false"
         embedded
         renderer="colorManagement: true; physicallyCorrectLights: false;"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 2,
+          pointerEvents: 'none'
+        }}
       >
-        {/* Caméra selon la doc - Laisser MindAR gérer le fov */}
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-        {/* Entity avec mindar-image-target selon la doc exacte */}
         <a-entity mindar-image-target="targetIndex: 0">
-          {/* Plan bleu pour overlay l'image (exactement comme dans la doc) */}
           <a-plane
             color="blue"
             opacity="0.5"
@@ -295,7 +363,6 @@ const MindARImagePage = () => {
             rotation="0 0 0"
           ></a-plane>
 
-          {/* Contenu 3D à afficher au-dessus de l'image - Animations stabilisées */}
           <a-box
             position="0 0.5 0"
             rotation="0 45 0"
@@ -318,21 +385,17 @@ const MindARImagePage = () => {
             align="center"
             color="#FF6B6B"
             scale="1.5 1.5 1.5"
-          >                              </a-text>
+          ></a-text>
         </a-entity>
       </a-scene>
 
-
-      {/* Styles CSS natifs - Laisser MindAR gérer le rendu */}
+      {/* Styles CSS */}
       <style>{`
         .arjs-loader {
-          height: 100vh;
-          width: 100vw;
           position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
+          inset: 0;
+          width: 100vw;
+          height: 100vh;
           background-color: rgba(0, 0, 0, 0.8);
           z-index: 9999;
           display: flex;
@@ -346,155 +409,34 @@ const MindARImagePage = () => {
           color: white;
         }
 
-        /* Mode portrait sur mobile - Rotation CSS pour plein écran (téléphone reste en portrait) */
-        .ar-page-container.portrait-mode {
-          width: 100vw;
-          height: 100vh;
-          position: fixed;
-          top: 0;
-          left: 0;
-          overflow: hidden;
-        }
-
-        .ar-page-container.portrait-mode a-scene {
-          width: 100vh !important;
-          height: 100vw !important;
-          position: fixed !important;
-          top: 50% !important;
-          left: 50% !important;
-          transform: translate(-50%, -50%) rotate(90deg) !important;
-          transform-origin: center center !important;
-        }
-
-        .ar-page-container.portrait-mode a-scene video {
-          width: 100vh !important;
-          height: 100vw !important;
-          object-fit: cover !important;
-          position: fixed !important;
-          top: 50% !important;
-          left: 50% !important;
-          transform: translate(-50%, -50%) rotate(90deg) !important;
-          transform-origin: center center !important;
-        }
-
-        .ar-page-container.portrait-mode a-scene canvas {
-          width: 100vh !important;
-          height: 100vw !important;
-          position: fixed !important;
-          top: 50% !important;
-          left: 50% !important;
-          transform: translate(-50%, -50%) rotate(90deg) !important;
-          transform-origin: center center !important;
-        }
-
-        /* Ajuster les éléments UI en mode portrait (rotation inverse pour qu'ils restent lisibles) */
-        .ar-page-container.portrait-mode .ui-overlay-element {
-          transform: translateX(-50%) rotate(-90deg) !important;
-          transform-origin: center center !important;
-        }
-
-        .ar-page-container.portrait-mode a[href] {
-          transform: rotate(-90deg) !important;
-          transform-origin: center center !important;
-        }
-
-        /* CRITIQUE : Éléments UI qui ne doivent pas bloquer */
         .ui-overlay-element {
           pointer-events: none !important;
         }
 
-        /* Styles pour la scène MindAR - Laisser MindAR gérer nativement */
-        a-scene {
-          width: 100%;
-          height: 100%;
+        .ar-page-container {
           position: fixed;
-          top: 0;
-          left: 0;
+          inset: 0;
+          width: 100vw;
+          height: 100vh;
           margin: 0;
           padding: 0;
+          overflow: hidden;
         }
 
-        /* Vidéo de la caméra - CSS simple sans manipulation JavaScript */
+        /* Masquer la vidéo créée par MindAR */
         a-scene video {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          object-position: center center;
-          position: fixed;
-          top: 0;
-          left: 0;
-          margin: 0;
-          padding: 0;
+          display: none !important;
         }
 
-        /* Canvas A-Frame */
+        /* Canvas A-Frame transparent pour le tracking */
         a-scene canvas {
-          width: 100%;
-          height: 100%;
-          position: fixed;
-          top: 0;
-          left: 0;
-          margin: 0;
-          padding: 0;
-        }
-
-        /* Styles spécifiques pour mobile - Responsive */
-        @media (max-width: 768px) {
-          a-scene {
-            width: 100vw;
-            height: 100vh;
-          }
-
-          a-scene video {
-            width: 100vw;
-            height: 100vh;
-            object-fit: cover;
-            object-position: center center;
-          }
-
-          a-scene canvas {
-            width: 100vw;
-            height: 100vh;
-          }
-        }
-
-        /* Gestion des deux orientations - Plein écran dans les deux cas */
-        @media (orientation: landscape) {
-          a-scene {
-            width: 100vw !important;
-            height: 100vh !important;
-          }
-
-          a-scene video {
-            width: 100vw !important;
-            height: 100vh !important;
-            object-fit: cover !important;
-            object-position: center center !important;
-          }
-
-          a-scene canvas {
-            width: 100vw !important;
-            height: 100vh !important;
-          }
-        }
-
-        @media (orientation: portrait) {
-          a-scene {
-            width: 100vw !important;
-            height: 100vh !important;
-          }
-
-          a-scene video {
-            width: 100vw !important;
-            height: 100vh !important;
-            object-fit: cover !important;
-            object-position: center center !important;
-          }
-
-          a-scene canvas {
-            width: 100vw !important;
-            height: 100vh !important;
-          }
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          z-index: 2 !important;
+          pointer-events: none !important;
         }
       `}</style>
     </div>

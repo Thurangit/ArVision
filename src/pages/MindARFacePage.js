@@ -6,52 +6,147 @@ const MindARFacePage = () => {
   const [isTracking, setIsTracking] = useState(false);
 
   useEffect(() => {
-    // Vérifier que MindAR est chargé
-    if (typeof window === 'undefined' || !window.AFRAME || !window.MINDAR) {
-      console.error('MindAR n\'est pas chargé');
-      setIsLoading(false);
-      return;
-    }
+    // Charger MindAR Face Tracking dynamiquement
+    const loadMindARFace = () => {
+      return new Promise((resolve, reject) => {
+        // Vérifier si MindAR Face est déjà chargé
+        if (window.MINDAR && window.MINDAR.FaceTracking) {
+          resolve();
+          return;
+        }
 
-    // Attendre que le DOM soit prêt
-    const initMindAR = () => {
-      const scene = document.querySelector('a-scene');
-      if (!scene) {
-        setTimeout(initMindAR, 100);
+        // Charger le script MindAR Face Tracking
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-face-aframe.prod.js';
+        script.onload = () => {
+          console.log('✅ MindAR Face Tracking chargé');
+          resolve();
+        };
+        script.onerror = () => {
+          console.error('❌ Erreur lors du chargement de MindAR Face Tracking');
+          reject(new Error('Impossible de charger MindAR Face Tracking'));
+        };
+        document.head.appendChild(script);
+      });
+    };
+
+    // Vérifier que A-Frame est chargé et charger MindAR Face
+    const initialize = async () => {
+      if (typeof window === 'undefined' || !window.AFRAME) {
+        console.error('A-Frame n\'est pas chargé');
+        setIsLoading(false);
         return;
       }
 
-      // Écouter les événements MindAR Face Tracking
-      scene.addEventListener('mindar-face-loaded', () => {
-        console.log('MindAR Face Tracking chargé');
+      try {
+        await loadMindARFace();
+      } catch (error) {
+        console.error('Erreur lors du chargement de MindAR Face:', error);
         setIsLoading(false);
-      });
+        return;
+      }
 
-      scene.addEventListener('mindar-face-tracking-start', () => {
-        console.log('Face Tracking démarré');
-        setIsTracking(true);
-      });
+      // Attendre que le DOM soit prêt
+      const initMindAR = () => {
+        const scene = document.querySelector('a-scene');
+        if (!scene) {
+          setTimeout(initMindAR, 100);
+          return;
+        }
 
-      scene.addEventListener('mindar-face-tracking-stop', () => {
-        console.log('Face Tracking arrêté');
-        setIsTracking(false);
-      });
+        // Écouter les événements MindAR Face Tracking
+        const arReadyHandler = () => {
+          console.log('✅ MindAR Face Tracking prêt');
+          setIsLoading(false);
+        };
 
-      // Timeout de sécurité
-      setTimeout(() => {
-        setIsLoading(false);
-      }, 5000);
+        const arErrorHandler = (event) => {
+          console.error('❌ Erreur MindAR Face Tracking:', event);
+          setIsLoading(false);
+        };
+
+        scene.addEventListener('arReady', arReadyHandler);
+        scene.addEventListener('arError', arErrorHandler);
+
+        // Stocker les handlers pour le nettoyage
+        scene._arReadyHandler = arReadyHandler;
+        scene._arErrorHandler = arErrorHandler;
+
+        // Écouter les événements de tracking via l'entité
+        const faceTarget = scene.querySelector('[mindar-face-target]');
+        if (faceTarget) {
+          const targetFoundHandler = () => {
+            console.log('✅ Visage détecté');
+            setIsTracking(true);
+          };
+
+          const targetLostHandler = () => {
+            console.log('❌ Visage perdu');
+            setIsTracking(false);
+          };
+
+          faceTarget.addEventListener('targetFound', targetFoundHandler);
+          faceTarget.addEventListener('targetLost', targetLostHandler);
+
+          // Stocker les handlers pour le nettoyage
+          faceTarget._targetFoundHandler = targetFoundHandler;
+          faceTarget._targetLostHandler = targetLostHandler;
+        }
+
+        // Timeout de sécurité
+        setTimeout(() => {
+          setIsLoading(false);
+        }, 5000);
+      };
+
+      setTimeout(initMindAR, 1000);
     };
 
-    setTimeout(initMindAR, 1000);
+    initialize();
 
     // Nettoyage
     return () => {
       const scene = document.querySelector('a-scene');
       if (scene) {
-        scene.removeEventListener('mindar-face-loaded', () => {});
-        scene.removeEventListener('mindar-face-tracking-start', () => {});
-        scene.removeEventListener('mindar-face-tracking-stop', () => {});
+        if (scene._arReadyHandler) {
+          scene.removeEventListener('arReady', scene._arReadyHandler);
+        }
+        if (scene._arErrorHandler) {
+          scene.removeEventListener('arError', scene._arErrorHandler);
+        }
+      }
+
+      const faceTarget = document.querySelector('[mindar-face-target]');
+      if (faceTarget) {
+        if (faceTarget._targetFoundHandler) {
+          faceTarget.removeEventListener('targetFound', faceTarget._targetFoundHandler);
+        }
+        if (faceTarget._targetLostHandler) {
+          faceTarget.removeEventListener('targetLost', faceTarget._targetLostHandler);
+        }
+      }
+
+      // Arrêter MindAR Face Tracking
+      try {
+        const arSystem = scene && scene.systems && scene.systems["mindar-face-system"];
+        if (arSystem && typeof arSystem.stop === 'function') {
+          arSystem.stop();
+          console.log('✅ MindAR Face Tracking arrêté proprement');
+        }
+      } catch (error) {
+        console.warn('⚠️ Erreur lors de l\'arrêt de MindAR Face Tracking:', error);
+      }
+
+      // Arrêter tous les streams vidéo
+      const video = scene && scene.querySelector('video');
+      if (video && video.srcObject) {
+        const stream = video.srcObject;
+        const tracks = stream.getTracks();
+        tracks.forEach(track => {
+          track.stop();
+          console.log('📹 Piste vidéo arrêtée');
+        });
+        video.srcObject = null;
       }
     };
   }, []);
@@ -157,7 +252,7 @@ const MindARFacePage = () => {
       </Link>
 
       {/* Scène MindAR Face Tracking */}
-      {typeof window !== 'undefined' && window.AFRAME && window.MINDAR && (
+      {typeof window !== 'undefined' && window.AFRAME && (
         <a-scene
           mindar-face="maxTrack: 1;"
           vr-mode-ui="enabled: false"
