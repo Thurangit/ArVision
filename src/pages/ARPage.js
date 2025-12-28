@@ -30,24 +30,50 @@ const ARPage = () => {
   }, []);
 
   useEffect(() => {
-    // Vérifier que A-Frame et AR.js sont chargés (depuis index.html)
-    const checkAndInitialize = () => {
+    // Charger AR.js dynamiquement pour éviter les conflits avec MindAR
+    const loadARjs = () => {
+      return new Promise((resolve, reject) => {
+        // Vérifier si AR.js est déjà chargé
+        if (window.ARjs) {
+          resolve();
+          return;
+        }
+
+        // Charger AR.js NFT
+        const script = document.createElement('script');
+        script.src = 'https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js';
+        script.onload = () => {
+          console.log('AR.js chargé avec succès');
+          resolve();
+        };
+        script.onerror = () => {
+          console.error('Erreur lors du chargement d\'AR.js');
+          reject(new Error('Impossible de charger AR.js'));
+        };
+        document.head.appendChild(script);
+      });
+    };
+
+    // Vérifier que A-Frame est chargé et charger AR.js
+    const checkAndInitialize = async () => {
       if (!window.AFRAME) {
         console.error('A-Frame n\'est pas chargé. Vérifiez que le script est dans index.html');
         setIsLoading(false);
         return;
       }
 
-      if (!window.ARjs) {
-        console.error('AR.js n\'est pas chargé. Vérifiez que le script est dans index.html');
-        setIsLoading(false);
-        return;
-      }
+      try {
+        // Charger AR.js
+        await loadARjs();
 
-      // Attendre que le DOM soit prêt et que React ait rendu la scène
-      setTimeout(() => {
-        initializeAR();
-      }, 1000);
+        // Attendre que le DOM soit prêt et que React ait rendu la scène
+        setTimeout(() => {
+          initializeAR();
+        }, 1000);
+      } catch (error) {
+        console.error('Erreur lors de l\'initialisation:', error);
+        setIsLoading(false);
+      }
     };
 
     const initializeAR = () => {
