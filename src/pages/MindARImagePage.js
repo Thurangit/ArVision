@@ -7,67 +7,148 @@ const MindARImagePage = () => {
   const sceneRef = useRef(null);
 
   useEffect(() => {
-    // Vérifier que A-Frame est chargé
-    if (typeof window === 'undefined' || !window.AFRAME) {
-      console.error('A-Frame n\'est pas chargé');
-      setIsLoading(false);
-      return;
-    }
+    // Vérifier que A-Frame et MindAR sont chargés
+    const checkLibraries = () => {
+      if (typeof window === 'undefined') {
+        return false;
+      }
+      
+      // Vérifier A-Frame
+      if (!window.AFRAME) {
+        console.log('En attente d\'A-Frame...');
+        return false;
+      }
 
-    // Attendre que le DOM soit prêt
+      // Vérifier que MindAR est disponible (via le composant mindar-image)
+      const scene = document.querySelector('a-scene');
+      if (scene && scene.hasAttribute('mindar-image')) {
+        return true;
+      }
+      
+      return false;
+    };
+
+    // Attendre que les bibliothèques soient chargées
+    const waitForLibraries = setInterval(() => {
+      if (checkLibraries()) {
+        clearInterval(waitForLibraries);
+        initMindAR();
+      }
+    }, 100);
+
+    // Timeout de sécurité
+    setTimeout(() => {
+      clearInterval(waitForLibraries);
+      if (!checkLibraries()) {
+        console.error('MindAR ou A-Frame ne sont pas chargés');
+        setIsLoading(false);
+      } else {
+        initMindAR();
+      }
+    }, 10000);
+
     const initMindAR = () => {
       const scene = document.querySelector('a-scene');
       if (!scene) {
-        setTimeout(initMindAR, 100);
+        console.error('Scène A-Frame non trouvée');
+        setIsLoading(false);
         return;
       }
 
       sceneRef.current = scene;
 
-      // Écouter les événements MindAR (noms d'événements selon la doc MindAR)
-      scene.addEventListener('arReady', () => {
-        console.log('MindAR Image Tracking prêt');
+      // Écouter les événements MindAR
+      const arReadyHandler = () => {
+        console.log('✅ MindAR Image Tracking prêt - Caméra activée');
         setIsLoading(false);
-      });
+        
+        // Vérifier que la caméra vidéo est active
+        const video = scene.querySelector('video');
+        if (video) {
+          console.log('📹 Caméra vidéo détectée:', video.readyState);
+        }
+      };
 
-      scene.addEventListener('arError', (event) => {
-        console.error('Erreur MindAR:', event);
+      const arErrorHandler = (event) => {
+        console.error('❌ Erreur MindAR:', event);
         setIsLoading(false);
-      });
+      };
+
+      // Écouter aussi l'événement de chargement du fichier .mind
+      const mindLoadedHandler = () => {
+        console.log('📦 Fichier .mind chargé');
+      };
+
+      scene.addEventListener('arReady', arReadyHandler);
+      scene.addEventListener('arError', arErrorHandler);
+      scene.addEventListener('mindar-image-loaded', mindLoadedHandler);
+      
+      // Vérifier périodiquement si la caméra est active
+      const checkCamera = setInterval(() => {
+        const video = scene.querySelector('video');
+        if (video && video.readyState >= 2) {
+          console.log('📹 Caméra active détectée');
+          clearInterval(checkCamera);
+          setIsLoading(false);
+        }
+      }, 500);
+      
+      // Arrêter la vérification après 10 secondes
+      setTimeout(() => {
+        clearInterval(checkCamera);
+      }, 10000);
 
       // Écouter les événements de tracking via l'entité
       const targetEntity = scene.querySelector('[mindar-image-target]');
       if (targetEntity) {
-        targetEntity.addEventListener('targetFound', () => {
+        const targetFoundHandler = () => {
           console.log('Image détectée');
           setIsTracking(true);
-        });
+        };
 
-        targetEntity.addEventListener('targetLost', () => {
+        const targetLostHandler = () => {
           console.log('Image perdue');
           setIsTracking(false);
-        });
+        };
+
+        targetEntity.addEventListener('targetFound', targetFoundHandler);
+        targetEntity.addEventListener('targetLost', targetLostHandler);
+
+        // Stocker les handlers pour le nettoyage
+        targetEntity._targetFoundHandler = targetFoundHandler;
+        targetEntity._targetLostHandler = targetLostHandler;
       }
 
-      // Timeout de sécurité
+      // Stocker les handlers pour le nettoyage
+      scene._arReadyHandler = arReadyHandler;
+      scene._arErrorHandler = arErrorHandler;
+
+      // Timeout de sécurité pour cacher le loader
       setTimeout(() => {
         setIsLoading(false);
       }, 5000);
     };
 
-    setTimeout(initMindAR, 1000);
-
     // Nettoyage
     return () => {
+      clearInterval(waitForLibraries);
       const scene = document.querySelector('a-scene');
       if (scene) {
-        scene.removeEventListener('arReady', () => {});
-        scene.removeEventListener('arError', () => {});
+        if (scene._arReadyHandler) {
+          scene.removeEventListener('arReady', scene._arReadyHandler);
+        }
+        if (scene._arErrorHandler) {
+          scene.removeEventListener('arError', scene._arErrorHandler);
+        }
       }
       const targetEntity = document.querySelector('[mindar-image-target]');
       if (targetEntity) {
-        targetEntity.removeEventListener('targetFound', () => {});
-        targetEntity.removeEventListener('targetLost', () => {});
+        if (targetEntity._targetFoundHandler) {
+          targetEntity.removeEventListener('targetFound', targetEntity._targetFoundHandler);
+        }
+        if (targetEntity._targetLostHandler) {
+          targetEntity.removeEventListener('targetLost', targetEntity._targetLostHandler);
+        }
       }
     };
   }, []);
@@ -142,13 +223,12 @@ const MindARImagePage = () => {
         ← Retour
       </Link>
 
-      {/* Scène MindAR Image Tracking */}
+      {/* Scène MindAR Image Tracking - Format exact selon la doc */}
       {typeof window !== 'undefined' && window.AFRAME && (
         <a-scene
           mindar-image="imageTargetSrc: /composant/image-a-reconnaitre/personne.mind;"
           vr-mode-ui="enabled: false"
           device-orientation-permission-ui="enabled: false"
-          renderer="colorManagement: true; physicallyCorrectLights: true;"
           embedded
           style={{ 
             width: '100vw', 
@@ -159,12 +239,12 @@ const MindARImagePage = () => {
             zIndex: 1
           }}
         >
-          {/* Caméra */}
+          {/* Caméra selon la doc */}
           <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-          {/* Entity pour le tracking d'image - targetIndex: 0 pour la première image */}
+          {/* Entity avec mindar-image-target selon la doc exacte */}
           <a-entity mindar-image-target="targetIndex: 0">
-            {/* Plan bleu pour overlay l'image (selon la doc) */}
+            {/* Plan bleu pour overlay l'image (exactement comme dans la doc) */}
             <a-plane 
               color="blue" 
               opacity="0.5" 

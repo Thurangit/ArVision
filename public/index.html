@@ -11,14 +11,12 @@
   <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
   <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
   <title>ArVision</title>
-  <!-- A-Frame pour MindAR (version unique - 1.5.0) -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <!-- MindAR Core (doit être chargé après A-Frame) -->
+  <!-- MindAR Image Tracking - Ordre exact selon l'exemple minimal de la doc -->
   <script src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/dist/mindar-image.prod.js"></script>
-  <!-- MindAR Image Tracking A-Frame -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   <!-- MindAR Face Tracking -->
-  <script src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/dist/mindar-face-aframe.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-aframe.prod.js"></script>
   <!-- Note: AR.js est chargé dynamiquement dans ARPage.js pour éviter les conflits -->
 </head>
 
