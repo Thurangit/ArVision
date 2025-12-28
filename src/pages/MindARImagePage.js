@@ -37,7 +37,7 @@ const MindARImagePage = () => {
       const arReadyHandler = () => {
         console.log('✅ MindAR Image Tracking prêt - Caméra activée');
         setIsLoading(false);
-        
+
         // Vérifier que la caméra vidéo est active
         setTimeout(() => {
           const video = scene.querySelector('video');
@@ -65,7 +65,7 @@ const MindARImagePage = () => {
       scene.addEventListener('arReady', arReadyHandler);
       scene.addEventListener('arError', arErrorHandler);
       scene.addEventListener('mindar-image-loaded', mindLoadedHandler);
-      
+
       // Vérifier périodiquement si la caméra est active
       let checkCount = 0;
       const checkCamera = setInterval(() => {
@@ -79,7 +79,7 @@ const MindARImagePage = () => {
             setIsLoading(false);
           }
         }
-        
+
         // Arrêter après 20 vérifications (10 secondes)
         if (checkCount >= 20) {
           clearInterval(checkCamera);
@@ -159,12 +159,12 @@ const MindARImagePage = () => {
   }, []);
 
   return (
-    <div className="ar-page-container" style={{ 
-      margin: 0, 
+    <div className="ar-page-container" style={{
+      margin: 0,
       padding: 0,
-      overflow: 'hidden', 
+      overflow: 'hidden',
       width: '100vw',
-      height: '100vh', 
+      height: '100vh',
       position: 'fixed',
       top: 0,
       left: 0,
@@ -200,8 +200,8 @@ const MindARImagePage = () => {
             transition: 'all 0.3s ease'
           }}
         >
-          {isTracking 
-            ? '✓ Image détectée' 
+          {isTracking
+            ? '✓ Image détectée'
             : '📷 Cherchez l\'image à tracker'
           }
         </div>
@@ -235,8 +235,8 @@ const MindARImagePage = () => {
         vr-mode-ui="enabled: false"
         device-orientation-permission-ui="enabled: false"
         embedded
-        style={{ 
-          width: '100vw', 
+        style={{
+          width: '100vw',
           height: '100vh',
           position: 'fixed',
           top: 0,
@@ -250,12 +250,12 @@ const MindARImagePage = () => {
         {/* Entity avec mindar-image-target selon la doc exacte */}
         <a-entity mindar-image-target="targetIndex: 0">
           {/* Plan bleu pour overlay l'image (exactement comme dans la doc) */}
-          <a-plane 
-            color="blue" 
-            opacity="0.5" 
-            position="0 0 0" 
-            height="0.552" 
-            width="1" 
+          <a-plane
+            color="blue"
+            opacity="0.5"
+            position="0 0 0"
+            height="0.552"
+            width="1"
             rotation="0 0 0"
           ></a-plane>
 
@@ -307,6 +307,102 @@ const MindARImagePage = () => {
           text-align: center;
           font-size: 1.25em;
           color: white;
+        }
+
+        /* Styles pour la scène MindAR - Plein écran sur mobile */
+        a-scene {
+          width: 100vw !important;
+          height: 100vh !important;
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow: hidden !important;
+        }
+
+        /* Vidéo de la caméra - Plein écran sans bords */
+        a-scene video {
+          width: 100vw !important;
+          height: 100vh !important;
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          object-fit: cover !important;
+          object-position: center center !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          transform: none !important;
+          /* Forcer le plein écran même si le ratio est différent */
+          min-width: 100vw !important;
+          min-height: 100vh !important;
+          max-width: 100vw !important;
+          max-height: 100vh !important;
+        }
+
+        /* Canvas A-Frame - Plein écran */
+        a-scene canvas {
+          width: 100vw !important;
+          height: 100vh !important;
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+
+        /* Styles spécifiques pour mobile - Forcer le plein écran */
+        @media (max-width: 768px) {
+          a-scene {
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: 100vw !important;
+            max-height: 100vh !important;
+            min-width: 100vw !important;
+            min-height: 100vh !important;
+            overflow: hidden !important;
+          }
+
+          a-scene video {
+            /* Approche agressive : scale très important pour éliminer tous les bords */
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            /* Scale très important pour les écrans longs (18:9, 19:9, 20:9) */
+            transform: translate(-50%, -50%) scale(2.2) !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            min-width: 100vw !important;
+            min-height: 100vh !important;
+            max-width: none !important;
+            max-height: none !important;
+            object-fit: cover !important;
+            object-position: center center !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            z-index: 1 !important;
+          }
+
+          /* Alternative : utiliser scale sur le conteneur si la vidéo a un ratio différent */
+          a-scene video[style*="width"] {
+            width: 100vw !important;
+            height: 100vh !important;
+            object-fit: cover !important;
+            /* Calculer le scale pour remplir complètement */
+            min-width: 100vw !important;
+            min-height: 100vh !important;
+          }
+
+          a-scene canvas {
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: 100vw !important;
+            max-height: 100vh !important;
+            min-width: 100vw !important;
+            min-height: 100vh !important;
+          }
         }
       `}</style>
     </div>
