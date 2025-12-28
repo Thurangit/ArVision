@@ -5,23 +5,146 @@ const MindARImagePage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isTracking, setIsTracking] = useState(false);
   const [cameraError, setCameraError] = useState(null);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const deferredPromptRef = useRef(null);
+
+  // Détecter si l'app est installée en PWA
+  useEffect(() => {
+    // Détecter le prompt d'installation PWA
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      deferredPromptRef.current = e;
+      // Afficher le prompt après 3 secondes si pas encore installé
+      setTimeout(() => {
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+          setShowInstallPrompt(false);
+        } else {
+          setShowInstallPrompt(true);
+        }
+      }, 3000);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  // Fonction pour obtenir un message d'erreur spécifique par navigateur
+  const getCameraErrorMessage = (error) => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+    const isEdge = /Edg/.test(navigator.userAgent);
+    const isSamsung = /SamsungBrowser/.test(navigator.userAgent);
+    const isOpera = /OPR|Opera/.test(navigator.userAgent);
+
+    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+      if (isIOS && isSafari) {
+        return {
+          title: 'Autorisation caméra requise',
+          message: 'Sur iOS Safari, autorisez l\'accès à la caméra dans Réglages > Safari > Caméra. L\'application nécessite HTTPS.',
+          isHTTPS: window.location.protocol !== 'https:'
+        };
+      } else if (isAndroid) {
+        return {
+          title: 'Autorisation caméra requise',
+          message: 'Autorisez l\'accès à la caméra dans les paramètres de votre navigateur ou installez l\'application en PWA pour une meilleure expérience.',
+          showInstall: true
+        };
+      } else if (isEdge || isSamsung || isOpera) {
+        return {
+          title: 'Autorisation caméra requise',
+          message: 'Cliquez sur l\'icône de caméra dans la barre d\'adresse pour autoriser l\'accès, ou installez l\'application en PWA.',
+          showInstall: true
+        };
+      }
+      return {
+        title: 'Autorisation caméra refusée',
+        message: 'Veuillez autoriser l\'accès à la caméra dans les paramètres de votre navigateur.'
+      };
+    }
+
+    if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+      return {
+        title: 'Caméra non trouvée',
+        message: 'Aucune caméra n\'a été détectée sur cet appareil.'
+      };
+    }
+
+    if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+      return {
+        title: 'Caméra déjà utilisée',
+        message: 'La caméra est déjà utilisée par une autre application. Fermez les autres applications utilisant la caméra.'
+      };
+    }
+
+    if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') {
+      return {
+        title: 'Configuration caméra non supportée',
+        message: 'Les paramètres de caméra demandés ne sont pas supportés par cet appareil.'
+      };
+    }
+
+    return {
+      title: 'Erreur d\'accès à la caméra',
+      message: `Erreur: ${error.message || error.name}. Vérifiez les permissions de votre navigateur.`
+    };
+  };
 
   // Obtenir le flux vidéo de la caméra avec l'API native
   useEffect(() => {
     const getCameraStream = async () => {
+      // Vérifier que getUserMedia est disponible
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        const isHTTPS = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+        setCameraError({
+          title: 'API caméra non disponible',
+          message: isHTTPS
+            ? 'Votre navigateur ne supporte pas l\'accès à la caméra. Essayez avec Chrome, Firefox ou Edge récent.'
+            : 'L\'accès à la caméra nécessite HTTPS. Veuillez utiliser une connexion sécurisée.',
+          isHTTPS: !isHTTPS
+        });
+        setIsLoading(false);
+        return;
+      }
+
       try {
-        // Demander l'accès à la caméra
-        const stream = await navigator.mediaDevices.getUserMedia({
+        // Demander l'accès à la caméra avec contraintes flexibles pour compatibilité mobile
+        // Essayer d'abord avec des contraintes idéales
+        let constraints = {
           video: {
+            facingMode: { ideal: 'environment' }, // Caméra arrière sur mobile
             width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: 'environment' // Caméra arrière sur mobile
+            height: { ideal: 720 }
           },
           audio: false
-        });
+        };
 
+        let stream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (firstError) {
+          // Si échec, essayer avec des contraintes plus simples
+          console.warn('⚠️ Contraintes idéales non supportées, essai avec contraintes simples');
+          constraints = {
+            video: {
+              facingMode: 'environment'
+            },
+            audio: false
+          };
+
+          try {
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+          } catch (secondError) {
+            // Dernier essai avec contraintes minimales
+            console.warn('⚠️ Contraintes simples non supportées, essai avec contraintes minimales');
+            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          }
+        }
         streamRef.current = stream;
 
         // Attendre que la vidéo soit prête
@@ -30,18 +153,21 @@ const MindARImagePage = () => {
           videoRef.current.play().then(() => {
             console.log('✅ Caméra activée avec succès');
             setIsLoading(false);
+            setCameraError(null);
           }).catch(err => {
             // Ignorer les erreurs AbortError (normales en mode dev React)
-            if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
+            if (err.name !== 'AbortError') {
               console.error('❌ Erreur lors de la lecture de la vidéo:', err);
-              setCameraError('Impossible de lire le flux vidéo');
+              const errorMsg = getCameraErrorMessage(err);
+              setCameraError(errorMsg);
             }
             setIsLoading(false);
           });
         }
       } catch (error) {
         console.error('❌ Erreur d\'accès à la caméra:', error);
-        setCameraError('Impossible d\'accéder à la caméra. Vérifiez les permissions.');
+        const errorMsg = getCameraErrorMessage(error);
+        setCameraError(errorMsg);
         setIsLoading(false);
       }
     };
@@ -237,7 +363,7 @@ const MindARImagePage = () => {
         </div>
       )}
 
-      {/* Message d'erreur caméra */}
+      {/* Message d'erreur caméra avec instructions spécifiques */}
       {cameraError && (
         <div
           style={{
@@ -246,16 +372,187 @@ const MindARImagePage = () => {
             left: '50%',
             transform: 'translate(-50%, -50%)',
             zIndex: 10001,
-            padding: '20px',
-            backgroundColor: 'rgba(220, 38, 38, 0.9)',
+            padding: '25px',
+            backgroundColor: 'rgba(220, 38, 38, 0.95)',
             color: 'white',
-            borderRadius: '10px',
+            borderRadius: '15px',
             textAlign: 'center',
-            maxWidth: '90%'
+            maxWidth: '90%',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
           }}
         >
-          <div style={{ fontSize: '1.2em', marginBottom: '10px' }}>❌ Erreur</div>
-          <div>{cameraError}</div>
+          <div style={{ fontSize: '1.3em', marginBottom: '15px', fontWeight: 'bold' }}>
+            ❌ {cameraError.title || 'Erreur'}
+          </div>
+          <div style={{ fontSize: '0.95em', marginBottom: '20px', lineHeight: '1.5' }}>
+            {cameraError.message || cameraError}
+          </div>
+
+          {/* Message HTTPS pour iOS */}
+          {cameraError.isHTTPS && (
+            <div style={{
+              fontSize: '0.85em',
+              marginTop: '15px',
+              padding: '10px',
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              borderRadius: '8px'
+            }}>
+              ⚠️ Sur iOS Safari, l'accès à la caméra nécessite HTTPS. Utilisez une connexion sécurisée.
+            </div>
+          )}
+
+          {/* Bouton d'installation PWA */}
+          {(cameraError.showInstall || showInstallPrompt) && deferredPromptRef.current && (
+            <button
+              onClick={async () => {
+                if (deferredPromptRef.current) {
+                  deferredPromptRef.current.prompt();
+                  const { outcome } = await deferredPromptRef.current.userChoice;
+                  console.log(`Installation PWA: ${outcome}`);
+                  deferredPromptRef.current = null;
+                  setShowInstallPrompt(false);
+                }
+              }}
+              style={{
+                marginTop: '15px',
+                padding: '12px 24px',
+                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                color: '#000',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '1em',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              📱 Installer l'application
+            </button>
+          )}
+
+          {/* Instructions iOS Safari */}
+          {/iPad|iPhone|iPod/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent) && (
+            <div style={{
+              fontSize: '0.85em',
+              marginTop: '15px',
+              padding: '10px',
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              borderRadius: '8px',
+              textAlign: 'left'
+            }}>
+              <strong>Instructions iOS Safari:</strong>
+              <ol style={{ margin: '10px 0', paddingLeft: '20px' }}>
+                <li>Appuyez sur le bouton "Partager" (📤)</li>
+                <li>Sélectionnez "Sur l'écran d'accueil"</li>
+                <li>Ouvrez l'application depuis l'écran d'accueil</li>
+                <li>Autorisez l'accès à la caméra quand demandé</li>
+              </ol>
+            </div>
+          )}
+
+          {/* Instructions Android */}
+          {/Android/.test(navigator.userAgent) && (
+            <div style={{
+              fontSize: '0.85em',
+              marginTop: '15px',
+              padding: '10px',
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              borderRadius: '8px',
+              textAlign: 'left'
+            }}>
+              <strong>Instructions Android:</strong>
+              <ol style={{ margin: '10px 0', paddingLeft: '20px' }}>
+                <li>Appuyez sur le menu (⋮) dans le navigateur</li>
+                <li>Sélectionnez "Ajouter à l'écran d'accueil" ou "Installer l'application"</li>
+                <li>Ouvrez l'application installée</li>
+                <li>Autorisez l'accès à la caméra dans les paramètres si nécessaire</li>
+              </ol>
+            </div>
+          )}
+
+          <button
+            onClick={() => {
+              setCameraError(null);
+              window.location.reload();
+            }}
+            style={{
+              marginTop: '15px',
+              padding: '10px 20px',
+              backgroundColor: 'rgba(255, 255, 255, 0.3)',
+              color: 'white',
+              border: '2px solid white',
+              borderRadius: '8px',
+              fontSize: '0.9em',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            🔄 Réessayer
+          </button>
+        </div>
+      )}
+
+      {/* Prompt d'installation PWA (si pas d'erreur) */}
+      {showInstallPrompt && !cameraError && deferredPromptRef.current && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 10001,
+            padding: '15px 20px',
+            backgroundColor: 'rgba(37, 99, 235, 0.95)',
+            color: 'white',
+            borderRadius: '12px',
+            textAlign: 'center',
+            maxWidth: '90%',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+          }}
+        >
+          <div style={{ marginBottom: '10px', fontWeight: 'bold' }}>
+            📱 Installer ArVision pour une meilleure expérience
+          </div>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            <button
+              onClick={async () => {
+                if (deferredPromptRef.current) {
+                  deferredPromptRef.current.prompt();
+                  const { outcome } = await deferredPromptRef.current.userChoice;
+                  console.log(`Installation PWA: ${outcome}`);
+                  deferredPromptRef.current = null;
+                  setShowInstallPrompt(false);
+                }
+              }}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: 'white',
+                color: '#2563eb',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '0.9em',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              Installer
+            </button>
+            <button
+              onClick={() => setShowInstallPrompt(false)}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: 'transparent',
+                color: 'white',
+                border: '1px solid white',
+                borderRadius: '8px',
+                fontSize: '0.9em',
+                cursor: 'pointer'
+              }}
+            >
+              Plus tard
+            </button>
+          </div>
         </div>
       )}
 
