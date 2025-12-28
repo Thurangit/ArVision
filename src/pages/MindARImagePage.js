@@ -7,54 +7,30 @@ const MindARImagePage = () => {
   const sceneRef = useRef(null);
 
   useEffect(() => {
-    // Vérifier que A-Frame et MindAR sont chargés
-    const checkLibraries = () => {
-      if (typeof window === 'undefined') {
-        return false;
-      }
-      
-      // Vérifier A-Frame
-      if (!window.AFRAME) {
-        console.log('En attente d\'A-Frame...');
-        return false;
-      }
-
-      // Vérifier que MindAR est disponible (via le composant mindar-image)
-      const scene = document.querySelector('a-scene');
-      if (scene && scene.hasAttribute('mindar-image')) {
-        return true;
-      }
-      
-      return false;
-    };
-
-    // Attendre que les bibliothèques soient chargées
-    const waitForLibraries = setInterval(() => {
-      if (checkLibraries()) {
-        clearInterval(waitForLibraries);
-        initMindAR();
-      }
-    }, 100);
-
-    // Timeout de sécurité
-    setTimeout(() => {
-      clearInterval(waitForLibraries);
-      if (!checkLibraries()) {
-        console.error('MindAR ou A-Frame ne sont pas chargés');
-        setIsLoading(false);
-      } else {
-        initMindAR();
-      }
-    }, 10000);
-
+    // Attendre que React ait rendu la scène dans le DOM
     const initMindAR = () => {
-      const scene = document.querySelector('a-scene');
-      if (!scene) {
-        console.error('Scène A-Frame non trouvée');
-        setIsLoading(false);
+      // Vérifier que A-Frame est chargé
+      if (!window.AFRAME) {
+        console.error('A-Frame n\'est pas chargé');
+        setTimeout(initMindAR, 500);
         return;
       }
 
+      const scene = document.querySelector('a-scene');
+      if (!scene) {
+        console.log('En attente de la scène A-Frame...');
+        setTimeout(initMindAR, 500);
+        return;
+      }
+
+      // Vérifier que la scène a l'attribut mindar-image
+      if (!scene.hasAttribute('mindar-image')) {
+        console.log('En attente de l\'attribut mindar-image...');
+        setTimeout(initMindAR, 500);
+        return;
+      }
+
+      console.log('✅ Scène MindAR trouvée, initialisation...');
       sceneRef.current = scene;
 
       // Écouter les événements MindAR
@@ -63,10 +39,17 @@ const MindARImagePage = () => {
         setIsLoading(false);
         
         // Vérifier que la caméra vidéo est active
-        const video = scene.querySelector('video');
-        if (video) {
-          console.log('📹 Caméra vidéo détectée:', video.readyState);
-        }
+        setTimeout(() => {
+          const video = scene.querySelector('video');
+          if (video) {
+            console.log('📹 Caméra vidéo détectée, readyState:', video.readyState);
+            if (video.readyState >= 2) {
+              console.log('✅ Caméra active et prête');
+            }
+          } else {
+            console.warn('⚠️ Aucun élément video trouvé dans la scène');
+          }
+        }, 1000);
       };
 
       const arErrorHandler = (event) => {
@@ -74,7 +57,7 @@ const MindARImagePage = () => {
         setIsLoading(false);
       };
 
-      // Écouter aussi l'événement de chargement du fichier .mind
+      // Écouter l'événement de chargement du fichier .mind
       const mindLoadedHandler = () => {
         console.log('📦 Fichier .mind chargé');
       };
@@ -84,30 +67,37 @@ const MindARImagePage = () => {
       scene.addEventListener('mindar-image-loaded', mindLoadedHandler);
       
       // Vérifier périodiquement si la caméra est active
+      let checkCount = 0;
       const checkCamera = setInterval(() => {
+        checkCount++;
         const video = scene.querySelector('video');
-        if (video && video.readyState >= 2) {
-          console.log('📹 Caméra active détectée');
+        if (video) {
+          console.log(`📹 Vérification caméra #${checkCount}, readyState:`, video.readyState);
+          if (video.readyState >= 2 && !video.paused) {
+            console.log('✅ Caméra active et en cours de lecture');
+            clearInterval(checkCamera);
+            setIsLoading(false);
+          }
+        }
+        
+        // Arrêter après 20 vérifications (10 secondes)
+        if (checkCount >= 20) {
           clearInterval(checkCamera);
+          console.warn('⚠️ Timeout: la caméra n\'a pas été détectée après 10 secondes');
           setIsLoading(false);
         }
       }, 500);
-      
-      // Arrêter la vérification après 10 secondes
-      setTimeout(() => {
-        clearInterval(checkCamera);
-      }, 10000);
 
       // Écouter les événements de tracking via l'entité
       const targetEntity = scene.querySelector('[mindar-image-target]');
       if (targetEntity) {
         const targetFoundHandler = () => {
-          console.log('Image détectée');
+          console.log('✅ Image détectée');
           setIsTracking(true);
         };
 
         const targetLostHandler = () => {
-          console.log('Image perdue');
+          console.log('❌ Image perdue');
           setIsTracking(false);
         };
 
@@ -117,21 +107,30 @@ const MindARImagePage = () => {
         // Stocker les handlers pour le nettoyage
         targetEntity._targetFoundHandler = targetFoundHandler;
         targetEntity._targetLostHandler = targetLostHandler;
+      } else {
+        console.warn('⚠️ Entité mindar-image-target non trouvée');
       }
 
       // Stocker les handlers pour le nettoyage
       scene._arReadyHandler = arReadyHandler;
       scene._arErrorHandler = arErrorHandler;
+      scene._mindLoadedHandler = mindLoadedHandler;
+      scene._checkCamera = checkCamera;
 
       // Timeout de sécurité pour cacher le loader
       setTimeout(() => {
         setIsLoading(false);
-      }, 5000);
+      }, 8000);
     };
+
+    // Démarrer l'initialisation après un court délai pour laisser React rendre
+    const timeout = setTimeout(() => {
+      initMindAR();
+    }, 1000);
 
     // Nettoyage
     return () => {
-      clearInterval(waitForLibraries);
+      clearTimeout(timeout);
       const scene = document.querySelector('a-scene');
       if (scene) {
         if (scene._arReadyHandler) {
@@ -139,6 +138,12 @@ const MindARImagePage = () => {
         }
         if (scene._arErrorHandler) {
           scene.removeEventListener('arError', scene._arErrorHandler);
+        }
+        if (scene._mindLoadedHandler) {
+          scene.removeEventListener('mindar-image-loaded', scene._mindLoadedHandler);
+        }
+        if (scene._checkCamera) {
+          clearInterval(scene._checkCamera);
         }
       }
       const targetEntity = document.querySelector('[mindar-image-target]');
@@ -224,63 +229,62 @@ const MindARImagePage = () => {
       </Link>
 
       {/* Scène MindAR Image Tracking - Format exact selon la doc */}
-      {typeof window !== 'undefined' && window.AFRAME && (
-        <a-scene
-          mindar-image="imageTargetSrc: /composant/image-a-reconnaitre/personne.mind;"
-          vr-mode-ui="enabled: false"
-          device-orientation-permission-ui="enabled: false"
-          embedded
-          style={{ 
-            width: '100vw', 
-            height: '100vh',
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            zIndex: 1
-          }}
-        >
-          {/* Caméra selon la doc */}
-          <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+      {/* Toujours rendre la scène pour qu'A-Frame puisse s'initialiser */}
+      <a-scene
+        mindar-image="imageTargetSrc: /composant/image-a-reconnaitre/personne.mind;"
+        vr-mode-ui="enabled: false"
+        device-orientation-permission-ui="enabled: false"
+        embedded
+        style={{ 
+          width: '100vw', 
+          height: '100vh',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          zIndex: 1
+        }}
+      >
+        {/* Caméra selon la doc */}
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-          {/* Entity avec mindar-image-target selon la doc exacte */}
-          <a-entity mindar-image-target="targetIndex: 0">
-            {/* Plan bleu pour overlay l'image (exactement comme dans la doc) */}
-            <a-plane 
-              color="blue" 
-              opacity="0.5" 
-              position="0 0 0" 
-              height="0.552" 
-              width="1" 
-              rotation="0 0 0"
-            ></a-plane>
+        {/* Entity avec mindar-image-target selon la doc exacte */}
+        <a-entity mindar-image-target="targetIndex: 0">
+          {/* Plan bleu pour overlay l'image (exactement comme dans la doc) */}
+          <a-plane 
+            color="blue" 
+            opacity="0.5" 
+            position="0 0 0" 
+            height="0.552" 
+            width="1" 
+            rotation="0 0 0"
+          ></a-plane>
 
-            {/* Contenu 3D à afficher au-dessus de l'image */}
-            <a-box
-              position="0 0.5 0"
-              rotation="0 45 0"
-              color="#4CC3D9"
-              scale="0.5 0.5 0.5"
-              animation="property: rotation; to: 0 405 0; loop: true; dur: 10000"
-            ></a-box>
+          {/* Contenu 3D à afficher au-dessus de l'image */}
+          <a-box
+            position="0 0.5 0"
+            rotation="0 45 0"
+            color="#4CC3D9"
+            scale="0.5 0.5 0.5"
+            animation="property: rotation; to: 0 405 0; loop: true; dur: 10000"
+          ></a-box>
 
-            <a-text
-              value="Bonjour"
-              position="0 1.2 0"
-              align="center"
-              color="#4ECDC4"
-              scale="2 2 2"
-            ></a-text>
+          <a-text
+            value="Bonjour"
+            position="0 1.2 0"
+            align="center"
+            color="#4ECDC4"
+            scale="2 2 2"
+          ></a-text>
 
-            <a-text
-              value="MindAR"
-              position="0 0.8 0"
-              align="center"
-              color="#FF6B6B"
-              scale="1.5 1.5 1.5"
-            ></a-text>
-          </a-entity>
-        </a-scene>
-      )}
+          <a-text
+            value="MindAR"
+            position="0 0.8 0"
+            align="center"
+            color="#FF6B6B"
+            scale="1.5 1.5 1.5"
+          ></a-text>
+        </a-entity>
+      </a-scene>
 
       {/* Styles */}
       <style>{`
