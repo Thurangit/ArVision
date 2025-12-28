@@ -690,22 +690,22 @@ const MindARImagePage = () => {
           {/* Plan de fond pour le texte de description (derrière le texte) */}
           <a-plane
             position="0 0.8 -0.01"
-            width="1.8"
-            height="0.5"
+            width="1.2"
+            height="0.35"
             color="#000000"
             opacity="0.75"
             rotation="0 0 0"
           ></a-plane>
 
-          {/* Texte de description AR - S'affiche quand l'image est détectée - 3 lignes */}
+          {/* Texte de description AR - S'affiche quand l'image est détectée - 3 lignes - Très petit */}
           <a-text
             value="C'est une jolie fille brune en jacquette et chemise"
             position="0 0.8 0"
             align="center"
             color="#FFFFFF"
-            scale="0.25 0.25 0.25"
-            width="4"
-            wrap-count="16"
+            scale="0.15 0.15 0.15"
+            width="3"
+            wrap-count="18"
           ></a-text>
         </a-entity>
       </a-scene>
