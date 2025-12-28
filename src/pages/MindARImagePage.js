@@ -5,7 +5,9 @@ const MindARImagePage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isTracking, setIsTracking] = useState(false);
 
+  // Initialisation MindAR
   useEffect(() => {
+
     // Vérifier que A-Frame est chargé
     if (typeof window === 'undefined' || !window.AFRAME) {
       console.error('A-Frame n\'est pas chargé');
@@ -13,61 +15,38 @@ const MindARImagePage = () => {
       return;
     }
 
+    let isInitialized = false;
+    let initTimeout = null;
+
     // Attendre que React ait rendu la scène dans le DOM
     const initMindAR = () => {
+      // Éviter les initialisations multiples
+      if (isInitialized) {
+        return;
+      }
+
       const scene = document.querySelector('a-scene');
       if (!scene) {
-        setTimeout(initMindAR, 100);
+        if (initTimeout) clearTimeout(initTimeout);
+        initTimeout = setTimeout(initMindAR, 100);
         return;
       }
 
       // Vérifier que la scène a l'attribut mindar-image
       if (!scene.hasAttribute('mindar-image')) {
-        setTimeout(initMindAR, 100);
+        if (initTimeout) clearTimeout(initTimeout);
+        initTimeout = setTimeout(initMindAR, 100);
         return;
       }
 
+      // Marquer comme initialisé
+      isInitialized = true;
       console.log('✅ Scène MindAR trouvée, initialisation...');
 
-      // Fonction pour ajuster la vidéo en plein écran
-      const adjustVideoFullScreen = () => {
-        const video = scene.querySelector('video');
-        if (video) {
-          // Utiliser les dimensions réelles de l'écran
-          const screenWidth = window.innerWidth;
-          const screenHeight = window.innerHeight;
-
-          // Forcer les dimensions exactes
-          video.style.setProperty('width', screenWidth + 'px', 'important');
-          video.style.setProperty('height', screenHeight + 'px', 'important');
-          video.style.setProperty('min-width', screenWidth + 'px', 'important');
-          video.style.setProperty('min-height', screenHeight + 'px', 'important');
-          video.style.setProperty('max-width', screenWidth + 'px', 'important');
-          video.style.setProperty('max-height', screenHeight + 'px', 'important');
-          video.style.setProperty('object-fit', 'cover', 'important');
-          video.style.setProperty('object-position', 'center center', 'important');
-          video.style.setProperty('position', 'fixed', 'important');
-          video.style.setProperty('top', '0', 'important');
-          video.style.setProperty('left', '0', 'important');
-          video.style.setProperty('right', '0', 'important');
-          video.style.setProperty('bottom', '0', 'important');
-          video.style.setProperty('margin', '0', 'important');
-          video.style.setProperty('padding', '0', 'important');
-          video.style.setProperty('transform', 'none', 'important');
-
-          console.log('📹 Vidéo ajustée en plein écran:', screenWidth + 'x' + screenHeight);
-        }
-      };
-
-      // Écouter les événements MindAR
+      // Définir les handlers d'événements MindAR (en dehors de setupMindARListeners pour qu'ils soient accessibles)
       const arReadyHandler = () => {
         console.log('✅ MindAR Image Tracking prêt - Caméra activée');
         setIsLoading(false);
-
-        // Ajuster la vidéo après un court délai
-        setTimeout(() => {
-          adjustVideoFullScreen();
-        }, 500);
       };
 
       const arErrorHandler = (event) => {
@@ -80,25 +59,35 @@ const MindARImagePage = () => {
         console.log('📦 Fichier .mind chargé');
       };
 
-      scene.addEventListener('arReady', arReadyHandler);
-      scene.addEventListener('arError', arErrorHandler);
-      scene.addEventListener('mindar-image-loaded', mindLoadedHandler);
-
-      // Vérifier périodiquement et ajuster la vidéo si nécessaire
-      const videoCheckInterval = setInterval(() => {
-        const video = scene.querySelector('video');
-        if (video && video.readyState >= 2) {
-          adjustVideoFullScreen();
+      // Attendre que la scène soit complètement initialisée avant d'écouter les événements
+      const waitForSceneReady = () => {
+        const camera = scene.querySelector('a-camera');
+        if (!camera || !camera.object3D) {
+          setTimeout(waitForSceneReady, 100);
+          return;
         }
-      }, 1000);
 
-      // Arrêter après 10 secondes
-      setTimeout(() => {
-        clearInterval(videoCheckInterval);
-      }, 10000);
+        // S'assurer que la caméra a un object3D avant de continuer
+        if (!camera.components || !camera.components.camera) {
+          setTimeout(waitForSceneReady, 100);
+          return;
+        }
 
-      // Stocker l'interval pour le nettoyage
-      scene._videoCheckInterval = videoCheckInterval;
+        console.log('✅ Scène et caméra prêtes');
+
+        // Ajouter les event listeners maintenant que la scène est prête
+        scene.addEventListener('arReady', arReadyHandler);
+        scene.addEventListener('arError', arErrorHandler);
+        scene.addEventListener('mindar-image-loaded', mindLoadedHandler);
+
+        // Stocker les handlers pour le nettoyage
+        scene._arReadyHandler = arReadyHandler;
+        scene._arErrorHandler = arErrorHandler;
+        scene._mindLoadedHandler = mindLoadedHandler;
+      };
+
+      // Démarrer l'attente de la scène
+      waitForSceneReady();
 
       // Écouter les événements de tracking via l'entité
       const targetEntity = scene.querySelector('[mindar-image-target]');
@@ -121,18 +110,6 @@ const MindARImagePage = () => {
         targetEntity._targetLostHandler = targetLostHandler;
       }
 
-      // Stocker les handlers pour le nettoyage
-      scene._arReadyHandler = arReadyHandler;
-      scene._arErrorHandler = arErrorHandler;
-      scene._mindLoadedHandler = mindLoadedHandler;
-
-      // Écouter le redimensionnement de la fenêtre
-      const resizeHandler = () => {
-        adjustVideoFullScreen();
-      };
-      window.addEventListener('resize', resizeHandler);
-      scene._resizeHandler = resizeHandler;
-
       // Timeout de sécurité pour cacher le loader
       setTimeout(() => {
         setIsLoading(false);
@@ -146,9 +123,12 @@ const MindARImagePage = () => {
 
     // Nettoyage
     return () => {
+      if (initTimeout) clearTimeout(initTimeout);
       clearTimeout(timeout);
+
       const scene = document.querySelector('a-scene');
       if (scene) {
+        // Nettoyer les event listeners
         if (scene._arReadyHandler) {
           scene.removeEventListener('arReady', scene._arReadyHandler);
         }
@@ -158,13 +138,35 @@ const MindARImagePage = () => {
         if (scene._mindLoadedHandler) {
           scene.removeEventListener('mindar-image-loaded', scene._mindLoadedHandler);
         }
-        if (scene._videoCheckInterval) {
-          clearInterval(scene._videoCheckInterval);
+
+        // Arrêter proprement MindAR pour libérer la caméra
+        try {
+          if (scene.components && scene.components['mindar-image-system']) {
+            const mindarSystem = scene.components['mindar-image-system'];
+            if (mindarSystem && typeof mindarSystem.stopProcessVideo === 'function') {
+              mindarSystem.stopProcessVideo();
+            }
+            if (mindarSystem && typeof mindarSystem.stop === 'function') {
+              mindarSystem.stop();
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Erreur lors de l\'arrêt de MindAR:', error);
         }
-        if (scene._resizeHandler) {
-          window.removeEventListener('resize', scene._resizeHandler);
+
+        // Arrêter tous les streams vidéo
+        const video = scene.querySelector('video');
+        if (video && video.srcObject) {
+          const stream = video.srcObject;
+          const tracks = stream.getTracks();
+          tracks.forEach(track => {
+            track.stop();
+            console.log('📹 Piste vidéo arrêtée');
+          });
+          video.srcObject = null;
         }
       }
+
       const targetEntity = document.querySelector('[mindar-image-target]');
       if (targetEntity) {
         if (targetEntity._targetFoundHandler) {
@@ -174,6 +176,9 @@ const MindARImagePage = () => {
           targetEntity.removeEventListener('targetLost', targetEntity._targetLostHandler);
         }
       }
+
+      // Réinitialiser le flag
+      isInitialized = false;
     };
   }, []);
 
@@ -189,9 +194,10 @@ const MindARImagePage = () => {
         </div>
       )}
 
-      {/* Indicateur de tracking */}
+      {/* Indicateur de tracking - NE DOIT PAS BLOQUER */}
       {!isLoading && (
         <div
+          className="ui-overlay-element"
           style={{
             position: 'fixed',
             top: '20px',
@@ -205,7 +211,10 @@ const MindARImagePage = () => {
             fontSize: '14px',
             fontWeight: 'bold',
             boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
-            transition: 'all 0.3s ease'
+            transition: 'all 0.3s ease',
+            pointerEvents: 'none', // ⚠️ CRITIQUE : ne bloque pas la scène
+            userSelect: 'none',
+            touchAction: 'none'
           }}
         >
           {isTracking
@@ -215,7 +224,7 @@ const MindARImagePage = () => {
         </div>
       )}
 
-      {/* Bouton retour */}
+      {/* Bouton retour - SEUL élément cliquable */}
       <Link
         to="/"
         style={{
@@ -230,7 +239,11 @@ const MindARImagePage = () => {
           borderRadius: '25px',
           fontSize: '14px',
           fontWeight: 'bold',
-          transition: 'all 0.3s ease'
+          transition: 'all 0.3s ease',
+          pointerEvents: 'auto', // SEUL ce bouton est cliquable
+          display: 'block',
+          userSelect: 'none',
+          touchAction: 'manipulation'
         }}
       >
         ← Retour
@@ -244,7 +257,7 @@ const MindARImagePage = () => {
         embedded
         renderer="colorManagement: true; physicallyCorrectLights: false;"
       >
-        {/* Caméra selon la doc */}
+        {/* Caméra selon la doc - Laisser MindAR gérer le fov */}
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
         {/* Entity avec mindar-image-target selon la doc exacte */}
@@ -309,6 +322,11 @@ const MindARImagePage = () => {
           color: white;
         }
 
+        /* CRITIQUE : Éléments UI qui ne doivent pas bloquer */
+        .ui-overlay-element {
+          pointer-events: none !important;
+        }
+
         /* Styles pour la scène MindAR - Laisser MindAR gérer nativement */
         a-scene {
           width: 100%;
@@ -344,48 +362,62 @@ const MindARImagePage = () => {
           padding: 0;
         }
 
-        /* Styles spécifiques pour mobile - Forcer le plein écran */
+        /* Styles spécifiques pour mobile - Responsive */
         @media (max-width: 768px) {
+          a-scene {
+            width: 100vw;
+            height: 100vh;
+          }
+
+          a-scene video {
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            object-position: center center;
+          }
+
+          a-scene canvas {
+            width: 100vw;
+            height: 100vh;
+          }
+        }
+
+        /* Gestion des deux orientations - Plein écran dans les deux cas */
+        @media (orientation: landscape) {
           a-scene {
             width: 100vw !important;
             height: 100vh !important;
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            overflow: hidden !important;
           }
 
           a-scene video {
             width: 100vw !important;
             height: 100vh !important;
-            min-width: 100vw !important;
-            min-height: 100vh !important;
-            max-width: 100vw !important;
-            max-height: 100vh !important;
             object-fit: cover !important;
             object-position: center center !important;
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            transform: none !important;
-            /* Forcer le plein écran même si le ratio d'aspect est différent */
-            z-index: 1 !important;
           }
 
           a-scene canvas {
             width: 100vw !important;
             height: 100vh !important;
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
+          }
+        }
+
+        @media (orientation: portrait) {
+          a-scene {
+            width: 100vw !important;
+            height: 100vh !important;
+          }
+
+          a-scene video {
+            width: 100vw !important;
+            height: 100vh !important;
+            object-fit: cover !important;
+            object-position: center center !important;
+          }
+
+          a-scene canvas {
+            width: 100vw !important;
+            height: 100vh !important;
           }
         }
       `}</style>
