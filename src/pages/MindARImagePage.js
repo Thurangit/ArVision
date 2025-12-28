@@ -1,14 +1,26 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import TrackingDot from '../components/TrackingDot';
+import ObjectInfoCard from '../components/ObjectInfoCard';
+import FloatingMenuBar from '../components/FloatingMenuBar';
+import { getObjectInfo } from '../data/arObjects';
 
 const MindARImagePage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isTracking, setIsTracking] = useState(false);
+  const [detectedObject, setDetectedObject] = useState(null); // Objet actuellement détecté
   const [cameraError, setCameraError] = useState(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const deferredPromptRef = useRef(null);
+  
+  // Mapping des targetIndex vers les objets
+  const targetMapping = {
+    0: 'personne',
+    1: 'montre',
+    2: 'télé'
+  };
 
   // Détecter si l'app est installée en PWA
   useEffect(() => {
@@ -263,17 +275,59 @@ const MindARImagePage = () => {
       scene._mindLoadedHandler = mindLoadedHandler;
       scene._sceneLoadedHandler = sceneLoadedHandler;
 
-      // Écouter les événements de tracking via l'entité
-      const targetEntity = scene.querySelector('[mindar-image-target]');
-      if (targetEntity) {
+      // Écouter les événements de tracking pour toutes les entités
+      const targetEntities = scene.querySelectorAll('[mindar-image-target]');
+      
+      targetEntities.forEach((targetEntity, index) => {
+        // Obtenir le targetIndex depuis l'attribut A-Frame
+        let targetIndex = index;
+        try {
+          const targetAttr = targetEntity.getAttribute('mindar-image-target');
+          if (targetAttr && typeof targetAttr === 'object' && targetAttr.targetIndex !== undefined) {
+            targetIndex = parseInt(targetAttr.targetIndex);
+          } else if (targetAttr && typeof targetAttr === 'string') {
+            // Format: "targetIndex: 0"
+            const match = targetAttr.match(/targetIndex:\s*(\d+)/);
+            if (match) {
+              targetIndex = parseInt(match[1]);
+            }
+          }
+        } catch (e) {
+          console.warn('Impossible de lire targetIndex, utilisation de l\'index par défaut:', index);
+        }
+        
+        const objectId = targetMapping[targetIndex];
+        
         const targetFoundHandler = () => {
-          console.log('✅ Image détectée');
+          console.log(`✅ Image détectée - Target ${targetIndex} (${objectId || 'inconnu'})`);
           setIsTracking(true);
+          
+          // Obtenir les informations de l'objet détecté
+          if (objectId) {
+            const objectInfo = getObjectInfo(objectId);
+            if (objectInfo) {
+              setDetectedObject(objectInfo);
+            }
+          }
         };
 
         const targetLostHandler = () => {
-          console.log('❌ Image perdue');
-          setIsTracking(false);
+          console.log(`❌ Image perdue - Target ${targetIndex} (${objectId || 'inconnu'})`);
+          // Vérifier si d'autres targets sont encore détectés
+          setTimeout(() => {
+            // Vérifier si un autre target est toujours actif
+            let anyActive = false;
+            targetEntities.forEach((entity) => {
+              if (entity !== targetEntity && entity.object3D && entity.object3D.visible) {
+                anyActive = true;
+              }
+            });
+            
+            if (!anyActive) {
+              setIsTracking(false);
+              setDetectedObject(null);
+            }
+          }, 200);
         };
 
         targetEntity.addEventListener('targetFound', targetFoundHandler);
@@ -282,7 +336,7 @@ const MindARImagePage = () => {
         // Stocker les handlers pour le nettoyage
         targetEntity._targetFoundHandler = targetFoundHandler;
         targetEntity._targetLostHandler = targetLostHandler;
-      }
+      });
     };
 
     // Démarrer l'initialisation après un court délai
@@ -337,15 +391,15 @@ const MindARImagePage = () => {
         }
       }
 
-      const targetEntity = document.querySelector('[mindar-image-target]');
-      if (targetEntity) {
+      const targetEntities = document.querySelectorAll('[mindar-image-target]');
+      targetEntities.forEach((targetEntity) => {
         if (targetEntity._targetFoundHandler) {
           targetEntity.removeEventListener('targetFound', targetEntity._targetFoundHandler);
         }
         if (targetEntity._targetLostHandler) {
           targetEntity.removeEventListener('targetLost', targetEntity._targetLostHandler);
         }
-      }
+      });
 
       isInitialized = false;
     };
@@ -556,60 +610,23 @@ const MindARImagePage = () => {
         </div>
       )}
 
-      {/* Indicateur de tracking */}
+      {/* Point de tracking (gris/vert en haut à droite) */}
       {!isLoading && !cameraError && (
-        <div
-          className="ui-overlay-element"
-          style={{
-            position: 'fixed',
-            top: '20px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 10000,
-            padding: '10px 20px',
-            backgroundColor: isTracking ? 'rgba(76, 175, 80, 0.9)' : 'rgba(255, 152, 0, 0.9)',
-            color: 'white',
-            borderRadius: '25px',
-            fontSize: '14px',
-            fontWeight: 'bold',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
-            transition: 'all 0.3s ease',
-            pointerEvents: 'none',
-            userSelect: 'none',
-            touchAction: 'none'
-          }}
-        >
-          {isTracking
-            ? '✓ Image détectée'
-            : '📷 Cherchez l\'image à tracker'
-          }
-        </div>
+        <TrackingDot isTracking={isTracking} />
       )}
 
-      {/* Bouton retour */}
-      <Link
-        to="/"
-        style={{
-          position: 'fixed',
-          top: '20px',
-          left: '20px',
-          zIndex: 10000,
-          padding: '10px 20px',
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
-          color: 'white',
-          textDecoration: 'none',
-          borderRadius: '25px',
-          fontSize: '14px',
-          fontWeight: 'bold',
-          transition: 'all 0.3s ease',
-          pointerEvents: 'auto',
-          display: 'block',
-          userSelect: 'none',
-          touchAction: 'manipulation'
-        }}
-      >
-        ← Retour
-      </Link>
+      {/* Card d'information de l'objet détecté (en haut à gauche) */}
+      {!isLoading && !cameraError && (
+        <ObjectInfoCard 
+          objectInfo={detectedObject} 
+          isVisible={isTracking && detectedObject !== null} 
+        />
+      )}
+
+      {/* Barre de menu flottante (en bas) */}
+      {!isLoading && !cameraError && (
+        <FloatingMenuBar />
+      )}
 
       {/* Vidéo de la caméra - Contrôlée par nous */}
       {!cameraError && (
@@ -632,8 +649,15 @@ const MindARImagePage = () => {
       )}
 
       {/* Scène MindAR Image Tracking - Pour le tracking AR uniquement */}
+      {/* 
+        NOTE: Pour supporter plusieurs targets, vous devez créer un fichier .mind combiné
+        qui contient tous les targets (personne, montre, télé).
+        Vous pouvez utiliser l'outil MindAR pour combiner les fichiers .mind.
+        Pour l'instant, nous utilisons personne.mind comme base.
+        Si vous avez un fichier combiné, remplacez l'URL dans imageTargetSrc.
+      */}
       <a-scene
-        mindar-image="imageTargetSrc: /composant/image-a-reconnaitre/personne.mind; filterMinCF: 0.001; filterBeta: 5; warmupTolerance: 3; missTolerance: 5; uiLoading: no; uiError: no; uiScanning: no; autoStart: true; maxTrack: 1;"
+        mindar-image="imageTargetSrc: /composant/image-a-reconnaitre/personne.mind; filterMinCF: 0.001; filterBeta: 5; warmupTolerance: 3; missTolerance: 5; uiLoading: no; uiError: no; uiScanning: no; autoStart: true; maxTrack: 3;"
         vr-mode-ui="enabled: false"
         device-orientation-permission-ui="enabled: false"
         embedded
@@ -650,63 +674,19 @@ const MindARImagePage = () => {
       >
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
+        {/* Target 0: Personne */}
         <a-entity mindar-image-target="targetIndex: 0">
           {/* Éléments AR commentés - Peut être réutilisés plus tard */}
-          {/* 
-          <a-plane
-            color="blue"
-            opacity="0.5"
-            position="0 0 0"
-            height="0.552"
-            width="1"
-            rotation="0 0 0"
-          ></a-plane>
+        </a-entity>
 
-          <a-box
-            position="0 0.5 0"
-            rotation="0 45 0"
-            color="#4CC3D9"
-            scale="0.5 0.5 0.5"
-            animation="property: rotation; to: 0 405 0; loop: true; dur: 10000; easing: linear"
-          ></a-box>
+        {/* Target 1: Montre */}
+        <a-entity mindar-image-target="targetIndex: 1">
+          {/* Éléments AR commentés - Peut être réutilisés plus tard */}
+        </a-entity>
 
-          <a-text
-            value="Bonjour"
-            position="0 1.2 0"
-            align="center"
-            color="#4ECDC4"
-            scale="2 2 2"
-          ></a-text>
-
-          <a-text
-            value="MindAR"
-            position="0 0.8 0"
-            align="center"
-            color="#FF6B6B"
-            scale="1.5 1.5 1.5"
-          ></a-text>
-          */}
-
-          {/* Plan de fond pour le texte de description (derrière le texte) */}
-          <a-plane
-            position="0 0.8 -0.01"
-            width="1.2"
-            height="0.35"
-            color="#000000"
-            opacity="0.75"
-            rotation="0 0 0"
-          ></a-plane>
-
-          {/* Texte de description AR - S'affiche quand l'image est détectée - 3 lignes - Très petit */}
-          <a-text
-            value="C'est une jolie fille brune en jacquette et chemise"
-            position="0 0.8 0"
-            align="center"
-            color="#FFFFFF"
-            scale="0.15 0.15 0.15"
-            width="3"
-            wrap-count="18"
-          ></a-text>
+        {/* Target 2: Télé */}
+        <a-entity mindar-image-target="targetIndex: 2">
+          {/* Éléments AR commentés - Peut être réutilisés plus tard */}
         </a-entity>
       </a-scene>
 
