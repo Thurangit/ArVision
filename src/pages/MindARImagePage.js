@@ -14,12 +14,23 @@ const MindARImagePage = () => {
   const streamRef = useRef(null);
   const deferredPromptRef = useRef(null);
 
-  // Mapping des fichiers .mind vers les objets
-  const mindFileMapping = {
-    'personne.mind': 'personne',
-    'montre.mind': 'montre',
-    'télé.mind': 'télé',
-    'logosrouge.mind': 'logosrouge'
+  // Mapping des targetIndex vers les objets (pour fichier .mind combiné allImage.mind)
+  // Ordre dans allImage.mind selon l'utilisateur :
+  // 0 = télé dans ma chambre
+  // 1 = montre casio offerte par serena
+  // 2 = logo applicatif
+  // 3 = logogiftme
+  // 4 = jolie fille brune
+  // 5 = maquette app
+  // 6 = des personnes
+  const targetIndexMapping = {
+    0: 'télé',        // télé dans ma chambre
+    1: 'montre',      // montre casio offerte par serena
+    2: 'logosrouge',  // logo applicatif
+    3: 'logosrouge',  // logogiftme (même type que logo applicatif)
+    4: 'personne',     // jolie fille brune
+    5: null,          // maquette app (pas d'objet défini)
+    6: 'personne'      // des personnes
   };
 
   // Détecter si l'app est installée en PWA
@@ -223,8 +234,15 @@ const MindARImagePage = () => {
         return;
       }
 
-      const scenes = document.querySelectorAll('a-scene[mindar-image]');
-      if (!scenes || scenes.length === 0) {
+      const scene = document.querySelector('a-scene[mindar-image]');
+      if (!scene) {
+        if (initTimeout) clearTimeout(initTimeout);
+        initTimeout = setTimeout(initMindAR, 100);
+        return;
+      }
+
+      // Vérifier que la scène a l'attribut mindar-image
+      if (!scene.hasAttribute('mindar-image')) {
         if (initTimeout) clearTimeout(initTimeout);
         initTimeout = setTimeout(initMindAR, 100);
         return;
@@ -232,16 +250,7 @@ const MindARImagePage = () => {
 
       // Marquer comme initialisé
       isInitialized = true;
-      console.log(`✅ ${scenes.length} scène(s) MindAR trouvée(s), initialisation...`);
-
-      // Initialiser chaque scène
-      scenes.forEach((scene) => {
-        initScene(scene);
-      });
-    };
-
-    // Fonction pour initialiser une scène individuelle
-    const initScene = (scene) => {
+      console.log('✅ Scène MindAR trouvée, initialisation...');
 
       // Obtenir le système MindAR
       let arSystem = null;
@@ -289,30 +298,32 @@ const MindARImagePage = () => {
       scene._mindLoadedHandler = mindLoadedHandler;
       scene._sceneLoadedHandler = sceneLoadedHandler;
 
-      // Identifier l'objet associé à cette scène en fonction du fichier .mind
-      const mindImageAttr = scene.getAttribute('mindar-image');
-      let objectId = null;
-
-      if (mindImageAttr && mindImageAttr.imageTargetSrc) {
-        const imageSrc = mindImageAttr.imageTargetSrc;
-        // Extraire le nom du fichier depuis le chemin
-        const fileName = imageSrc.split('/').pop();
-        // Trouver l'objet correspondant au fichier .mind
-        objectId = mindFileMapping[fileName] || null;
-        if (objectId) {
-          console.log(`📋 Scène associée à l'objet: ${objectId} (fichier: ${fileName})`);
-        }
-      }
-
-      // Stocker l'objectId sur la scène pour référence
-      scene._objectId = objectId;
-
-      // Écouter les événements de tracking pour toutes les entités de cette scène
+      // Écouter les événements de tracking pour toutes les entités
       const targetEntities = scene.querySelectorAll('[mindar-image-target]');
 
       targetEntities.forEach((targetEntity) => {
+        // Obtenir le targetIndex depuis l'attribut A-Frame
+        let targetIndex = 0;
+        try {
+          const targetAttr = targetEntity.getAttribute('mindar-image-target');
+          if (targetAttr && typeof targetAttr === 'object' && targetAttr.targetIndex !== undefined) {
+            targetIndex = parseInt(targetAttr.targetIndex);
+          } else if (targetAttr && typeof targetAttr === 'string') {
+            // Format: "targetIndex: 0"
+            const match = targetAttr.match(/targetIndex:\s*(\d+)/);
+            if (match) {
+              targetIndex = parseInt(match[1]);
+            }
+          }
+        } catch (e) {
+          console.warn('Impossible de lire targetIndex, utilisation de 0 par défaut');
+        }
+
+        // Obtenir l'objectId depuis le mapping targetIndex
+        const objectId = targetIndexMapping[targetIndex] || null;
+
         const targetFoundHandler = () => {
-          console.log(`✅ Image détectée - ${objectId || 'inconnu'}`);
+          console.log(`✅ Image détectée - Target ${targetIndex} (${objectId || 'inconnu'})`);
           setIsTracking(true);
 
           // Obtenir les informations de l'objet détecté
@@ -325,18 +336,14 @@ const MindARImagePage = () => {
         };
 
         const targetLostHandler = () => {
-          console.log(`❌ Image perdue - ${objectId || 'inconnu'}`);
-          // Vérifier si d'autres scènes ont encore des targets détectés
+          console.log(`❌ Image perdue - Target ${targetIndex} (${objectId || 'inconnu'})`);
+          // Vérifier si d'autres targets sont encore détectés
           setTimeout(() => {
             let anyActive = false;
-            const allScenes = document.querySelectorAll('a-scene[mindar-image]');
-            allScenes.forEach((otherScene) => {
-              const otherTargets = otherScene.querySelectorAll('[mindar-image-target]');
-              otherTargets.forEach((entity) => {
-                if (entity.object3D && entity.object3D.visible) {
-                  anyActive = true;
-                }
-              });
+            targetEntities.forEach((entity) => {
+              if (entity !== targetEntity && entity.object3D && entity.object3D.visible) {
+                anyActive = true;
+              }
             });
 
             if (!anyActive) {
@@ -353,6 +360,7 @@ const MindARImagePage = () => {
         targetEntity._targetFoundHandler = targetFoundHandler;
         targetEntity._targetLostHandler = targetLostHandler;
         targetEntity._objectId = objectId;
+        targetEntity._targetIndex = targetIndex;
       });
     };
 
@@ -366,8 +374,8 @@ const MindARImagePage = () => {
       if (initTimeout) clearTimeout(initTimeout);
       clearTimeout(timeout);
 
-      const allScenes = document.querySelectorAll('a-scene[mindar-image]');
-      allScenes.forEach((scene) => {
+      const scene = document.querySelector('a-scene[mindar-image]');
+      if (scene) {
         // Nettoyer les event listeners
         if (scene._arReadyHandler) {
           scene.removeEventListener('arReady', scene._arReadyHandler);
@@ -391,19 +399,19 @@ const MindARImagePage = () => {
             // Vérifier que le système a les méthodes nécessaires avant d'appeler stop
             if (typeof arSystem.stop === 'function' && arSystem.video && arSystem.video.processor) {
               arSystem.stop();
-              console.log(`✅ MindAR arrêté proprement pour ${scene._objectId || 'scène inconnue'}`);
+              console.log('✅ MindAR arrêté proprement');
             } else {
               // Le système n'est pas complètement initialisé, on essaie juste de pause
               if (typeof arSystem.pause === 'function') {
                 arSystem.pause();
-                console.log(`✅ MindAR mis en pause pour ${scene._objectId || 'scène inconnue'}`);
+                console.log('✅ MindAR mis en pause');
               }
             }
           }
         } catch (error) {
           // Ignorer les erreurs silencieusement si le système n'est pas initialisé
           if (error.message && !error.message.includes('stopProcessVideo')) {
-            console.warn(`⚠️ Erreur lors de l'arrêt de MindAR pour ${scene._objectId || 'scène inconnue'}:`, error);
+            console.warn('⚠️ Erreur lors de l\'arrêt de MindAR:', error);
           }
         }
 
@@ -417,7 +425,7 @@ const MindARImagePage = () => {
             targetEntity.removeEventListener('targetLost', targetEntity._targetLostHandler);
           }
         });
-      });
+      }
 
       isInitialized = false;
     };
@@ -666,11 +674,19 @@ const MindARImagePage = () => {
         />
       )}
 
-      {/* Scènes MindAR Image Tracking - Une scène par fichier .mind pour détecter toutes les images */}
-
-      {/* Scène 1: Personne */}
+      {/* Scène MindAR Image Tracking - UNE SEULE scène avec fichier .mind combiné allImage.mind */}
+      {/* 
+        Le fichier allImage.mind contient 7 images compilées :
+        - targetIndex 0: télé dans ma chambre -> 'télé'
+        - targetIndex 1: montre casio offerte par serena -> 'montre'
+        - targetIndex 2: logo applicatif -> 'logosrouge'
+        - targetIndex 3: logogiftme -> 'logosrouge'
+        - targetIndex 4: jolie fille brune -> 'personne'
+        - targetIndex 5: maquette app -> (pas d'objet défini)
+        - targetIndex 6: des personnes -> 'personne'
+      */}
       <a-scene
-        mindar-image="imageTargetSrc: /composant/image-a-reconnaitre/personne.mind; filterMinCF: 0.001; filterBeta: 5; warmupTolerance: 3; missTolerance: 5; uiLoading: no; uiError: no; uiScanning: no; autoStart: true; maxTrack: 1;"
+        mindar-image="imageTargetSrc: /composant/image-a-reconnaitre/allImage.mind; filterMinCF: 0.001; filterBeta: 5; warmupTolerance: 3; missTolerance: 5; uiLoading: no; uiError: no; uiScanning: no; autoStart: true; maxTrack: 7;"
         vr-mode-ui="enabled: false"
         device-orientation-permission-ui="enabled: false"
         embedded
@@ -686,70 +702,27 @@ const MindARImagePage = () => {
         }}
       >
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-        <a-entity mindar-image-target="targetIndex: 0"></a-entity>
-      </a-scene>
 
-      {/* Scène 2: Montre */}
-      <a-scene
-        mindar-image="imageTargetSrc: /composant/image-a-reconnaitre/montre.mind; filterMinCF: 0.001; filterBeta: 5; warmupTolerance: 3; missTolerance: 5; uiLoading: no; uiError: no; uiScanning: no; autoStart: true; maxTrack: 1;"
-        vr-mode-ui="enabled: false"
-        device-orientation-permission-ui="enabled: false"
-        embedded
-        renderer="colorManagement: true; physicallyCorrectLights: false;"
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          zIndex: 2,
-          pointerEvents: 'none'
-        }}
-      >
-        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+        {/* Target 0: Télé dans ma chambre */}
         <a-entity mindar-image-target="targetIndex: 0"></a-entity>
-      </a-scene>
 
-      {/* Scène 3: Télé */}
-      <a-scene
-        mindar-image="imageTargetSrc: /composant/image-a-reconnaitre/télé.mind; filterMinCF: 0.001; filterBeta: 5; warmupTolerance: 3; missTolerance: 5; uiLoading: no; uiError: no; uiScanning: no; autoStart: true; maxTrack: 1;"
-        vr-mode-ui="enabled: false"
-        device-orientation-permission-ui="enabled: false"
-        embedded
-        renderer="colorManagement: true; physicallyCorrectLights: false;"
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          zIndex: 2,
-          pointerEvents: 'none'
-        }}
-      >
-        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-        <a-entity mindar-image-target="targetIndex: 0"></a-entity>
-      </a-scene>
+        {/* Target 1: Montre casio offerte par serena */}
+        <a-entity mindar-image-target="targetIndex: 1"></a-entity>
 
-      {/* Scène 4: Logo Rouge */}
-      <a-scene
-        mindar-image="imageTargetSrc: /composant/image-a-reconnaitre/logosrouge.mind; filterMinCF: 0.001; filterBeta: 5; warmupTolerance: 3; missTolerance: 5; uiLoading: no; uiError: no; uiScanning: no; autoStart: true; maxTrack: 1;"
-        vr-mode-ui="enabled: false"
-        device-orientation-permission-ui="enabled: false"
-        embedded
-        renderer="colorManagement: true; physicallyCorrectLights: false;"
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          zIndex: 2,
-          pointerEvents: 'none'
-        }}
-      >
-        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-        <a-entity mindar-image-target="targetIndex: 0"></a-entity>
+        {/* Target 2: Logo applicatif */}
+        <a-entity mindar-image-target="targetIndex: 2"></a-entity>
+
+        {/* Target 3: Logogiftme */}
+        <a-entity mindar-image-target="targetIndex: 3"></a-entity>
+
+        {/* Target 4: Jolie fille brune */}
+        <a-entity mindar-image-target="targetIndex: 4"></a-entity>
+
+        {/* Target 5: Maquette app (pas d'objet défini, sera ignoré) */}
+        <a-entity mindar-image-target="targetIndex: 5"></a-entity>
+
+        {/* Target 6: Des personnes */}
+        <a-entity mindar-image-target="targetIndex: 6"></a-entity>
       </a-scene>
 
       {/* Styles CSS */}
