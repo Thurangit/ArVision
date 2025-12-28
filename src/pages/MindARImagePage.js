@@ -668,6 +668,27 @@ const MindARImagePage = () => {
             animation="property: rotation; to: 0 405 0; loop: true; dur: 10000; easing: linear"
           ></a-box>
 
+          {/* Plan de fond pour le texte de description (derrière le texte) */}
+          <a-plane
+            position="0 1.5 -0.01"
+            width="5.5"
+            height="1.3"
+            color="#000000"
+            opacity="0.75"
+            rotation="0 0 0"
+          ></a-plane>
+
+          {/* Texte de description AR - S'affiche quand l'image est détectée */}
+          <a-text
+            value="C'est une jolie fille brune en jacquette et chemise"
+            position="0 1.5 0"
+            align="center"
+            color="#FFFFFF"
+            scale="1.5 1.5 1.5"
+            width="10"
+            wrap-count="25"
+          ></a-text>
+
           <a-text
             value="Bonjour"
             position="0 1.2 0"
