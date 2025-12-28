@@ -86,40 +86,40 @@ const FloatingMenuBar = () => {
         <div
           style={{
             display: 'flex',
-            gap: '12px',
-            backgroundColor: 'rgba(255, 255, 255, 0.15)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            borderRadius: '50px',
-            padding: '12px 20px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
-            border: '1px solid rgba(255, 255, 255, 0.3)'
+            gap: '8px',
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            backdropFilter: 'blur(15px)',
+            WebkitBackdropFilter: 'blur(15px)',
+            borderRadius: '30px',
+            padding: '8px 12px',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+            border: '1px solid rgba(255, 255, 255, 0.2)'
           }}
         >
           {/* Bouton Retour */}
           <button
             onClick={() => navigate(-1)}
             style={{
-              width: '48px',
-              height: '48px',
+              width: '36px',
+              height: '36px',
               borderRadius: '50%',
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
               border: 'none',
               color: 'white',
-              fontSize: '20px',
+              fontSize: '16px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               transition: 'all 0.3s ease',
-              backdropFilter: 'blur(10px)'
+              backdropFilter: 'blur(8px)'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
-              e.currentTarget.style.transform = 'scale(1.1)';
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.25)';
+              e.currentTarget.style.transform = 'scale(1.05)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
               e.currentTarget.style.transform = 'scale(1)';
             }}
             aria-label="Retour"
@@ -131,32 +131,32 @@ const FloatingMenuBar = () => {
           <Link
             to="/"
             style={{
-              width: '48px',
-              height: '48px',
+              width: '36px',
+              height: '36px',
               borderRadius: '50%',
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
               border: 'none',
               color: 'white',
-              fontSize: '20px',
+              fontSize: '16px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               textDecoration: 'none',
               transition: 'all 0.3s ease',
-              backdropFilter: 'blur(10px)'
+              backdropFilter: 'blur(8px)'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
-              e.currentTarget.style.transform = 'scale(1.1)';
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.25)';
+              e.currentTarget.style.transform = 'scale(1.05)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
               e.currentTarget.style.transform = 'scale(1)';
             }}
             aria-label="Accueil"
           >
-            🏠
+            ⌂
           </Link>
 
           {/* Bouton Notifications */}
@@ -166,45 +166,32 @@ const FloatingMenuBar = () => {
               console.log('Notifications');
             }}
             style={{
-              width: '48px',
-              height: '48px',
+              width: '36px',
+              height: '36px',
               borderRadius: '50%',
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
               border: 'none',
               color: 'white',
-              fontSize: '20px',
+              fontSize: '16px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               transition: 'all 0.3s ease',
-              backdropFilter: 'blur(10px)',
+              backdropFilter: 'blur(8px)',
               position: 'relative'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
-              e.currentTarget.style.transform = 'scale(1.1)';
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.25)';
+              e.currentTarget.style.transform = 'scale(1.05)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
               e.currentTarget.style.transform = 'scale(1)';
             }}
             aria-label="Notifications"
           >
-            🔔
-            {/* Badge de notification (optionnel) */}
-            <span
-              style={{
-                position: 'absolute',
-                top: '4px',
-                right: '4px',
-                width: '12px',
-                height: '12px',
-                borderRadius: '50%',
-                backgroundColor: '#ff4444',
-                border: '2px solid rgba(255, 255, 255, 0.3)'
-              }}
-            />
+            ⚬
           </button>
         </div>
       ) : (
@@ -212,28 +199,28 @@ const FloatingMenuBar = () => {
         <button
           onClick={handleMenuClick}
           style={{
-            width: '56px',
-            height: '56px',
+            width: '40px',
+            height: '40px',
             borderRadius: '50%',
-            backgroundColor: 'rgba(255, 255, 255, 0.15)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.3)',
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            backdropFilter: 'blur(15px)',
+            WebkitBackdropFilter: 'blur(15px)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
             color: 'white',
-            fontSize: '24px',
+            fontSize: '18px',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             transition: 'all 0.3s ease',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.25)';
-            e.currentTarget.style.transform = 'scale(1.1)';
+            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
+            e.currentTarget.style.transform = 'scale(1.05)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
+            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
             e.currentTarget.style.transform = 'scale(1)';
           }}
           aria-label="Menu"

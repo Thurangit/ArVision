@@ -26,15 +26,15 @@ const ObjectInfoCard = ({ objectInfo, isVisible }) => {
       style={{
         position: 'fixed',
         top: '20px',
-        left: '20px',
+        right: '20px',
         zIndex: 10000,
-        maxWidth: '320px',
-        width: 'calc(100vw - 40px)',
+        maxWidth: '240px',
+        width: 'auto',
         backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        borderRadius: '16px',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
-        padding: '20px',
-        transform: isMounted ? 'translateX(0) scale(1)' : 'translateX(-100%) scale(0.8)',
+        borderRadius: '12px',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+        padding: '12px',
+        transform: isMounted ? 'translateX(0) scale(1)' : 'translateX(100%) scale(0.8)',
         opacity: isMounted ? 1 : 0,
         transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
         pointerEvents: 'auto',
@@ -46,26 +46,25 @@ const ObjectInfoCard = ({ objectInfo, isVisible }) => {
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '12px',
-          marginBottom: '16px',
-          paddingBottom: '12px',
-          borderBottom: '2px solid rgba(0, 0, 0, 0.1)'
+          gap: '8px',
+          marginBottom: '10px',
+          paddingBottom: '8px',
+          borderBottom: '1px solid rgba(0, 0, 0, 0.1)'
         }}
       >
         {/* Icône de point d'interrogation stylisée */}
         <div
           style={{
-            width: '48px',
-            height: '48px',
+            width: '32px',
+            height: '32px',
             borderRadius: '50%',
-            backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '24px',
+            fontSize: '16px',
             color: 'white',
-            boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+            boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
             flexShrink: 0
           }}
         >
@@ -76,7 +75,7 @@ const ObjectInfoCard = ({ objectInfo, isVisible }) => {
           <h3
             style={{
               margin: 0,
-              fontSize: '20px',
+              fontSize: '14px',
               fontWeight: 'bold',
               color: '#1a1a1a',
               lineHeight: '1.2'
@@ -90,13 +89,13 @@ const ObjectInfoCard = ({ objectInfo, isVisible }) => {
       {/* Histoire */}
       <div
         style={{
-          fontSize: '13px',
-          lineHeight: '1.6',
+          fontSize: '10px',
+          lineHeight: '1.5',
           color: '#4a4a4a',
-          maxHeight: '400px',
+          maxHeight: '300px',
           overflowY: 'auto',
-          paddingRight: '8px',
-          textAlign: 'justify'
+          paddingRight: '4px',
+          textAlign: 'left'
         }}
       >
         {objectInfo.story}

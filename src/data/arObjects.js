@@ -56,6 +56,24 @@ Elle est le gardien des traditions, transmettant les valeurs et les cultures à 
 Cette télévision n'est pas seulement un objet technologique, elle est un pont entre les générations, 
 un moyen de partage et de découverte. Elle rappelle que même dans notre monde connecté, 
 il y a une magie particulière à se rassembler autour d'un écran pour partager une expérience commune.`
+  },
+  logosrouge: {
+    id: 'logosrouge',
+    name: 'Logo Rouge',
+    icon: '🔴',
+    story: `Ce logo rouge est bien plus qu'un simple symbole graphique ; c'est une identité visuelle qui parle. 
+La couleur rouge évoque la passion, l'énergie et la détermination. C'est une couleur qui attire l'attention, 
+qui communique immédiatement un message fort et mémorable. Ce logo, avec ses lignes et ses formes, 
+raconte une histoire de créativité et d'innovation. Il représente une marque, une vision, 
+une promesse faite aux utilisateurs. Dans un monde saturé d'informations visuelles, 
+un logo bien conçu se distingue et reste gravé dans la mémoire. Ce logo rouge n'est pas seulement 
+un élément décoratif, c'est un outil de communication puissant qui transcende les barrières linguistiques. 
+Il évoque des émotions, crée des associations et construit une identité de marque solide. 
+Que ce soit sur un écran, sur un produit ou dans un espace physique, ce logo rouge capte le regard 
+et invite à l'exploration. Il est le visage d'une entreprise, d'un projet ou d'une vision, 
+représentant les valeurs et les aspirations de ceux qui l'ont créé. Dans l'univers du design, 
+le rouge est souvent choisi pour sa capacité à transmettre l'urgence, l'importance et l'action. 
+Ce logo incarne ces qualités, devenant un symbole de dynamisme et de progrès.`
   }
 };
 
