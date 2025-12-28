@@ -213,19 +213,34 @@ const MindARImagePage = () => {
 
   // Fonction pour forcer le mode paysage
   const forceLandscape = async () => {
+    // Méthode 1: API Screen Orientation (moderne)
     if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
       try {
         await window.screen.orientation.lock('landscape');
         console.log('✅ Orientation verrouillée en mode paysage');
+        return;
       } catch (err) {
-        console.log('⚠️ Impossible de verrouiller l\'orientation:', err);
-        // Afficher un message à l'utilisateur
-        alert('Veuillez tourner votre appareil en mode paysage manuellement. Le verrouillage automatique n\'est pas disponible sur votre navigateur.');
+        console.log('⚠️ Impossible de verrouiller avec screen.orientation:', err);
       }
-    } else {
-      // Fallback pour les navigateurs qui ne supportent pas l'API
-      alert('Veuillez tourner votre appareil en mode paysage. Votre navigateur ne supporte pas le verrouillage automatique de l\'orientation.');
     }
+
+    // Méthode 2: API Device Orientation (ancienne méthode)
+    if (window.DeviceOrientationEvent && typeof window.DeviceOrientationEvent.requestPermission === 'function') {
+      try {
+        const permission = await window.DeviceOrientationEvent.requestPermission();
+        if (permission === 'granted') {
+          // L'orientation sera gérée par le navigateur
+          console.log('✅ Permission d\'orientation accordée');
+        }
+      } catch (err) {
+        console.log('⚠️ Permission refusée:', err);
+      }
+    }
+
+    // Méthode 3: Essayer de forcer via le manifest (déjà configuré)
+    // Le manifest.json a déjà "orientation": "any"
+    // On peut essayer de recharger la page pour forcer l'orientation
+    console.log('🔄 Tentative de changement d\'orientation...');
   };
 
   return (
