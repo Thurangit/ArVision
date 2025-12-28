@@ -9,11 +9,16 @@ import HomePage from './pages/HomePage';
 import ARPage from './pages/ARPage';
 import TestPage1 from './pages/TestPage1';
 import TestPage2 from './pages/TestPage2';
+// Composant d'installation PWA
+import InstallPrompt from './components/InstallPrompt';
 
 function App() {
   return (
     <Router>
       <div className="App">
+        {/* Prompt d'installation automatique à l'ouverture */}
+        <InstallPrompt autoShow={true} delay={3000} />
+        
         <Routes>
           {/* Routes principales - MindAR */}
           <Route path="/" element={<MainPage />} />

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import InstallButton from '../components/InstallButton';
 
 const MainPage = () => {
   return (
@@ -13,9 +14,14 @@ const MainPage = () => {
           <p className="text-2xl text-gray-600 mb-2">
             Réalité Augmentée avec MindAR
           </p>
-          <p className="text-lg text-gray-500">
+          <p className="text-lg text-gray-500 mb-6">
             Image Tracking & Face Tracking
           </p>
+          
+          {/* Bouton d'installation PWA */}
+          <div className="max-w-md mx-auto mb-8">
+            <InstallButton />
+          </div>
         </div>
 
         {/* Cartes principales */}
