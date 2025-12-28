@@ -268,11 +268,109 @@ const MindARImagePage = () => {
 
       scene.addEventListener('loaded', sceneLoadedHandler);
 
+      // Fonction pour attacher les event listeners aux targets
+      let listenersAttached = false;
+      const setupTargetListeners = () => {
+        // Éviter d'attacher les listeners plusieurs fois
+        if (listenersAttached) {
+          console.log('⚠️ Listeners déjà attachés, ignoré');
+          return;
+        }
+
+        // Attendre un peu pour que les entités soient complètement initialisées
+        setTimeout(() => {
+          const targetEntities = scene.querySelectorAll('[mindar-image-target]');
+          console.log(`📋 ${targetEntities.length} entité(s) target trouvée(s)`);
+
+          if (targetEntities.length === 0) {
+            console.warn('⚠️ Aucune entité target trouvée, réessai dans 500ms...');
+            setTimeout(setupTargetListeners, 500);
+            return;
+          }
+
+          listenersAttached = true;
+          console.log('🔗 Attachement des event listeners aux targets...');
+
+          targetEntities.forEach((targetEntity) => {
+            // Obtenir le targetIndex depuis l'attribut A-Frame
+            let targetIndex = 0;
+            try {
+              const targetAttr = targetEntity.getAttribute('mindar-image-target');
+              if (targetAttr && typeof targetAttr === 'object' && targetAttr.targetIndex !== undefined) {
+                targetIndex = parseInt(targetAttr.targetIndex);
+              } else if (targetAttr && typeof targetAttr === 'string') {
+                // Format: "targetIndex: 0"
+                const match = targetAttr.match(/targetIndex:\s*(\d+)/);
+                if (match) {
+                  targetIndex = parseInt(match[1]);
+                }
+              }
+            } catch (e) {
+              console.warn('Impossible de lire targetIndex, utilisation de 0 par défaut');
+            }
+
+            // Obtenir l'objectId depuis le mapping targetIndex
+            const objectId = targetIndexMapping[targetIndex] || null;
+            console.log(`📌 Target ${targetIndex} mappé vers: ${objectId || 'inconnu'}`);
+
+            const targetFoundHandler = () => {
+              console.log(`✅ Image détectée - Target ${targetIndex} (${objectId || 'inconnu'})`);
+              setIsTracking(true);
+
+              // Obtenir les informations de l'objet détecté
+              if (objectId) {
+                const objectInfo = getObjectInfo(objectId);
+                if (objectInfo) {
+                  setDetectedObject(objectInfo);
+                }
+              }
+            };
+
+            const targetLostHandler = () => {
+              console.log(`❌ Image perdue - Target ${targetIndex} (${objectId || 'inconnu'})`);
+              // Vérifier si d'autres targets sont encore détectés
+              setTimeout(() => {
+                let anyActive = false;
+                const allTargets = scene.querySelectorAll('[mindar-image-target]');
+                allTargets.forEach((entity) => {
+                  if (entity !== targetEntity && entity.object3D && entity.object3D.visible) {
+                    anyActive = true;
+                  }
+                });
+
+                if (!anyActive) {
+                  setIsTracking(false);
+                  setDetectedObject(null);
+                }
+              }, 200);
+            };
+
+            // Vérifier si les listeners ne sont pas déjà attachés
+            if (!targetEntity._listenersAttached) {
+              targetEntity.addEventListener('targetFound', targetFoundHandler);
+              targetEntity.addEventListener('targetLost', targetLostHandler);
+              targetEntity._listenersAttached = true;
+              console.log(`✅ Listeners attachés pour Target ${targetIndex}`);
+            }
+
+            // Stocker les handlers pour le nettoyage
+            targetEntity._targetFoundHandler = targetFoundHandler;
+            targetEntity._targetLostHandler = targetLostHandler;
+            targetEntity._objectId = objectId;
+            targetEntity._targetIndex = targetIndex;
+          });
+
+          console.log(`✅ Tous les listeners ont été attachés pour ${targetEntities.length} target(s)`);
+        }, 500);
+      };
+
       // Définir les handlers d'événements MindAR
       const arReadyHandler = () => {
         const mindImageAttr = scene.getAttribute('mindar-image');
         const imageSrc = mindImageAttr?.imageTargetSrc || 'inconnu';
         console.log(`✅ MindAR Image Tracking prêt pour ${imageSrc}`);
+        // Attacher les listeners aux targets après que MindAR soit prêt
+        setupTargetListeners();
       };
 
       const arErrorHandler = (event) => {
@@ -285,6 +383,8 @@ const MindARImagePage = () => {
         const mindImageAttr = scene.getAttribute('mindar-image');
         const imageSrc = mindImageAttr?.imageTargetSrc || 'inconnu';
         console.log(`📦 Fichier .mind chargé pour ${imageSrc}`);
+        // Attacher les listeners aux targets après le chargement du fichier .mind
+        setupTargetListeners();
       };
 
       // Ajouter les event listeners sur la scène
@@ -297,71 +397,6 @@ const MindARImagePage = () => {
       scene._arErrorHandler = arErrorHandler;
       scene._mindLoadedHandler = mindLoadedHandler;
       scene._sceneLoadedHandler = sceneLoadedHandler;
-
-      // Écouter les événements de tracking pour toutes les entités
-      const targetEntities = scene.querySelectorAll('[mindar-image-target]');
-
-      targetEntities.forEach((targetEntity) => {
-        // Obtenir le targetIndex depuis l'attribut A-Frame
-        let targetIndex = 0;
-        try {
-          const targetAttr = targetEntity.getAttribute('mindar-image-target');
-          if (targetAttr && typeof targetAttr === 'object' && targetAttr.targetIndex !== undefined) {
-            targetIndex = parseInt(targetAttr.targetIndex);
-          } else if (targetAttr && typeof targetAttr === 'string') {
-            // Format: "targetIndex: 0"
-            const match = targetAttr.match(/targetIndex:\s*(\d+)/);
-            if (match) {
-              targetIndex = parseInt(match[1]);
-            }
-          }
-        } catch (e) {
-          console.warn('Impossible de lire targetIndex, utilisation de 0 par défaut');
-        }
-
-        // Obtenir l'objectId depuis le mapping targetIndex
-        const objectId = targetIndexMapping[targetIndex] || null;
-
-        const targetFoundHandler = () => {
-          console.log(`✅ Image détectée - Target ${targetIndex} (${objectId || 'inconnu'})`);
-          setIsTracking(true);
-
-          // Obtenir les informations de l'objet détecté
-          if (objectId) {
-            const objectInfo = getObjectInfo(objectId);
-            if (objectInfo) {
-              setDetectedObject(objectInfo);
-            }
-          }
-        };
-
-        const targetLostHandler = () => {
-          console.log(`❌ Image perdue - Target ${targetIndex} (${objectId || 'inconnu'})`);
-          // Vérifier si d'autres targets sont encore détectés
-          setTimeout(() => {
-            let anyActive = false;
-            targetEntities.forEach((entity) => {
-              if (entity !== targetEntity && entity.object3D && entity.object3D.visible) {
-                anyActive = true;
-              }
-            });
-
-            if (!anyActive) {
-              setIsTracking(false);
-              setDetectedObject(null);
-            }
-          }, 200);
-        };
-
-        targetEntity.addEventListener('targetFound', targetFoundHandler);
-        targetEntity.addEventListener('targetLost', targetLostHandler);
-
-        // Stocker les handlers pour le nettoyage
-        targetEntity._targetFoundHandler = targetFoundHandler;
-        targetEntity._targetLostHandler = targetLostHandler;
-        targetEntity._objectId = objectId;
-        targetEntity._targetIndex = targetIndex;
-      });
     };
 
     // Démarrer l'initialisation après un court délai
