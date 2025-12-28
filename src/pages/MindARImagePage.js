@@ -4,6 +4,35 @@ import { Link } from 'react-router-dom';
 const MindARImagePage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isTracking, setIsTracking] = useState(false);
+  const [isPortrait, setIsPortrait] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Détecter l'orientation et forcer le mode paysage sur mobile
+  useEffect(() => {
+    const checkOrientation = () => {
+      const isPortraitMode = window.innerHeight > window.innerWidth;
+      const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+
+      setIsPortrait(isPortraitMode);
+      setIsMobile(isMobileDevice);
+
+      // Forcer l'orientation paysage sur mobile si disponible
+      if (isMobileDevice && isPortraitMode && screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(err => {
+          console.log('Impossible de verrouiller l\'orientation:', err);
+        });
+      }
+    };
+
+    checkOrientation();
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
+
+    return () => {
+      window.removeEventListener('resize', checkOrientation);
+      window.removeEventListener('orientationchange', checkOrientation);
+    };
+  }, []);
 
   // Initialisation MindAR
   useEffect(() => {
@@ -184,6 +213,21 @@ const MindARImagePage = () => {
 
   return (
     <div className="ar-page-container">
+      {/* Message pour forcer le mode paysage sur mobile */}
+      {isMobile && isPortrait && (
+        <div className="portrait-warning">
+          <div>
+            <div style={{ fontSize: '3em', marginBottom: '1em' }}>📱</div>
+            <div style={{ fontSize: '1.2em', fontWeight: 'bold', marginBottom: '1em' }}>
+              Veuillez tourner votre appareil en mode paysage
+            </div>
+            <div>
+              Pour une meilleure expérience, cette application fonctionne uniquement en mode paysage
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Loader */}
       {isLoading && (
         <div className="arjs-loader">
@@ -250,54 +294,57 @@ const MindARImagePage = () => {
       </Link>
 
       {/* Scène MindAR Image Tracking - Configuration optimisée */}
-      <a-scene
-        mindar-image="imageTargetSrc: /composant/image-a-reconnaitre/personne.mind; filterMinCF: 0.001; filterBeta: 5; warmupTolerance: 3; missTolerance: 5; uiLoading: no; uiError: no; uiScanning: no; autoStart: true; maxTrack: 1;"
-        vr-mode-ui="enabled: false"
-        device-orientation-permission-ui="enabled: false"
-        embedded
-        renderer="colorManagement: true; physicallyCorrectLights: false;"
-      >
-        {/* Caméra selon la doc - Laisser MindAR gérer le fov */}
-        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+      {(!isMobile || !isPortrait) && (
+        <a-scene
+          mindar-image="imageTargetSrc: /composant/image-a-reconnaitre/personne.mind; filterMinCF: 0.001; filterBeta: 5; warmupTolerance: 3; missTolerance: 5; uiLoading: no; uiError: no; uiScanning: no; autoStart: true; maxTrack: 1;"
+          vr-mode-ui="enabled: false"
+          device-orientation-permission-ui="enabled: false"
+          embedded
+          renderer="colorManagement: true; physicallyCorrectLights: false;"
+        >
+          {/* Caméra selon la doc - Laisser MindAR gérer le fov */}
+          <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-        {/* Entity avec mindar-image-target selon la doc exacte */}
-        <a-entity mindar-image-target="targetIndex: 0">
-          {/* Plan bleu pour overlay l'image (exactement comme dans la doc) */}
-          <a-plane
-            color="blue"
-            opacity="0.5"
-            position="0 0 0"
-            height="0.552"
-            width="1"
-            rotation="0 0 0"
-          ></a-plane>
+          {/* Entity avec mindar-image-target selon la doc exacte */}
+          <a-entity mindar-image-target="targetIndex: 0">
+            {/* Plan bleu pour overlay l'image (exactement comme dans la doc) */}
+            <a-plane
+              color="blue"
+              opacity="0.5"
+              position="0 0 0"
+              height="0.552"
+              width="1"
+              rotation="0 0 0"
+            ></a-plane>
 
-          {/* Contenu 3D à afficher au-dessus de l'image - Animations stabilisées */}
-          <a-box
-            position="0 0.5 0"
-            rotation="0 45 0"
-            color="#4CC3D9"
-            scale="0.5 0.5 0.5"
-            animation="property: rotation; to: 0 405 0; loop: true; dur: 10000; easing: linear"
-          ></a-box>
+            {/* Contenu 3D à afficher au-dessus de l'image - Animations stabilisées */}
+            <a-box
+              position="0 0.5 0"
+              rotation="0 45 0"
+              color="#4CC3D9"
+              scale="0.5 0.5 0.5"
+              animation="property: rotation; to: 0 405 0; loop: true; dur: 10000; easing: linear"
+            ></a-box>
 
-          <a-text
-            value="Bonjour"
-            position="0 1.2 0"
-            align="center"
-            color="#4ECDC4"
-            scale="2 2 2"
-          ></a-text>
+            <a-text
+              value="Bonjour"
+              position="0 1.2 0"
+              align="center"
+              color="#4ECDC4"
+              scale="2 2 2"
+            ></a-text>
 
-          <a-text
-            value="MindAR"
-            position="0 0.8 0"
-            align="center"
-            color="#FF6B6B"
-            scale="1.5 1.5 1.5"
-          ></a-text>
-        </a-entity>
-      </a-scene>
+            <a-text
+              value="MindAR"
+              position="0 0.8 0"
+              align="center"
+              color="#FF6B6B"
+              scale="1.5 1.5 1.5"
+            >          </a-text>
+          </a-entity>
+        </a-scene>
+      )}
+
 
       {/* Styles CSS natifs - Laisser MindAR gérer le rendu */}
       <style>{`
@@ -320,6 +367,31 @@ const MindARImagePage = () => {
           text-align: center;
           font-size: 1.25em;
           color: white;
+        }
+
+        /* Message d'avertissement mode portrait sur mobile */
+        .portrait-warning {
+          display: flex;
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: rgba(0, 0, 0, 0.95);
+          z-index: 99999;
+          justify-content: center;
+          align-items: center;
+          color: white;
+          font-size: 1.2em;
+          text-align: center;
+          padding: 20px;
+        }
+
+        .portrait-warning div {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
         }
 
         /* CRITIQUE : Éléments UI qui ne doivent pas bloquer */
