@@ -17,8 +17,8 @@ const MindARImagePage = () => {
       setIsMobile(isMobileDevice);
 
       // Forcer l'orientation paysage sur mobile si disponible
-      if (isMobileDevice && isPortraitMode && screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock('landscape').catch(err => {
+      if (isMobileDevice && isPortraitMode && window.screen && window.screen.orientation && window.screen.orientation.lock) {
+        window.screen.orientation.lock('landscape').catch(err => {
           console.log('Impossible de verrouiller l\'orientation:', err);
         });
       }
